@@ -186,6 +186,7 @@ export default function ArchiveTimeline(props: {
           <Show when={timeline()?.comparable && frames().length > 1}>
             <button
               type="button"
+              data-demo-control="swipe"
               aria-pressed={referenceIndex() !== undefined}
               onClick={() => {
                 setPlaying(false);
@@ -359,6 +360,7 @@ export default function ArchiveTimeline(props: {
                   </button>
                   <button
                     type="button"
+                    data-demo-control="playback"
                     disabled={frames().length < 2}
                     onClick={() => {
                       setReferenceIndex(undefined);

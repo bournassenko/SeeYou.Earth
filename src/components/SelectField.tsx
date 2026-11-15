@@ -28,7 +28,11 @@ export default function SelectField(props: {
         if (option) props.onChange(option.value);
       }}
       itemComponent={(item) => (
-        <Select.Item item={item.item} class="select-item">
+        <Select.Item
+          item={item.item}
+          class="select-item"
+          data-option-value={item.item.rawValue.value}
+        >
           <Select.ItemLabel>{item.item.rawValue.label}</Select.ItemLabel>
           <Select.ItemIndicator>
             <Check aria-hidden="true" />

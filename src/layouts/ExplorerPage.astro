@@ -4,7 +4,6 @@ import Binoculars from "@lucide/astro/icons/binoculars";
 import CirclePlay from "@lucide/astro/icons/circle-play";
 import AstrometryReview from "../components/AstrometryReview";
 import DemoTour from "../components/DemoTour.astro";
-import DifferencePreview from "../components/DifferencePreview.astro";
 import "@fontsource-variable/inter";
 import "../styles/theme.css";
 import ProjectIntro from "../components/ProjectIntro";
@@ -65,10 +64,7 @@ const current = navigation.find((entry) => entry.id === page);
         {(page === "explore" || demo) && (
           <SkyExplorer client:load demo={demo} />
         )}
-        {demo && <DifferencePreview />}
-        {(page === "review" || demo) && (
-          <AstrometryReview client:load demo={demo} />
-        )}
+        {page === "review" && <AstrometryReview client:load />}
       </main>
     </div>
   </body>
@@ -840,10 +836,6 @@ const current = navigation.find((entry) => entry.id === page);
   .spectrum-values .spectrum-active {
     background: var(--accent);
     color: var(--accent-foreground);
-  }
-
-  .dashboard-demo :is(.difference-preview, .astrometry-review) {
-    margin-top: clamp(1rem, 2vw, 1.5rem);
   }
 
   .review-form {

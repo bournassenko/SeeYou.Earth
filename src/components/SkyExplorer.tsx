@@ -36,13 +36,6 @@ import observations from "../observations.json";
 
 type Pixel = { x: number; y: number };
 type CoordinateGrid = { coordinates: [number, number][][] };
-type ArchiveObservation = {
-  id: string;
-  detector: string;
-  date: string | null;
-  source: string;
-};
-
 const coordinateFields = [
   {
     id: "ra",
@@ -140,8 +133,7 @@ export default function SkyExplorer(props: { demo?: boolean }) {
   const [linkStatus, setLinkStatus] = createSignal("");
   const [dateError, setDateError] = createSignal("");
   const [heading, setHeading] = createSignal("Sky field");
-  const live = !props.demo;
-  const pending = () => Boolean(selection() && (live || selection()?.target));
+  const pending = () => Boolean(selection());
   const result = () => {
     const response = archive();
     return response && "series" in response ? response : undefined;
@@ -160,7 +152,7 @@ export default function SkyExplorer(props: { demo?: boolean }) {
       const query = new URLSearchParams({ ra, dec, fov });
       if (from) query.set("from", from);
       if (to) query.set("to", to);
-      if (live) query.set("mode", "series");
+      query.set("mode", "series");
       const endpoint = target
         ? `/observations/examples/${target}.json`
         : `/api/observations?${query}`;
@@ -168,8 +160,7 @@ export default function SkyExplorer(props: { demo?: boolean }) {
       if (response.status === 429 || response.status === 503)
         return { busy: true } as const;
       if (!response.ok) return { unavailable: true } as const;
-      return (await response.json()) as
-        ArchiveSeries | { observations: ArchiveObservation[] };
+      return (await response.json()) as ArchiveSeries;
     } catch {
       return { unavailable: true } as const;
     } finally {
@@ -408,45 +399,11 @@ export default function SkyExplorer(props: { demo?: boolean }) {
   }
 
   const decimalDegrees = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/;
-  let demoExplorer: HTMLElement | undefined;
   let coordinateForm: HTMLFormElement | undefined;
-  let sourceDetails: HTMLDetailsElement | undefined;
-
-  function runDemo(event: Event) {
-    const action = (event as CustomEvent<string>).detail;
-    if (action === "search") {
-      setPlaying(false);
-      setComparing(false);
-      setPinnedPixel(undefined);
-      setMarkers(true);
-      showObservation(0);
-      changeZoom(1);
-      coordinateForm?.reset();
-    } else if (action === "sources") {
-      if (sourceDetails) sourceDetails.open = true;
-    } else if (action === "compare") {
-      if (sourceDetails) sourceDetails.open = false;
-      setSelectedSource(undefined);
-      setComparing(false);
-    } else if (action === "spectrum") {
-      setComparing(false);
-      setPlaying(false);
-      showObservation(0);
-      setPinnedPixel(undefined);
-    } else if (action === "deep") {
-      const example = exampleFields.find(({ key }) => key === "nep");
-      if (example) loadExample(example);
-    }
-  }
 
   onMount(() => {
-    if (props.demo && demoExplorer) {
-      const target = demoExplorer;
-      target.addEventListener("seeyou-demo", runDemo);
-      onCleanup(() => target.removeEventListener("seeyou-demo", runDemo));
-    }
     setReady(true);
-    if (!live || !coordinateForm || window.location.protocol === "tauri:")
+    if (props.demo || !coordinateForm || window.location.protocol === "tauri:")
       return;
     const params = new URLSearchParams(window.location.search);
     const example = exampleFields.find(
@@ -471,6 +428,7 @@ export default function SkyExplorer(props: { demo?: boolean }) {
 
   function fieldUrl(values?: FieldSelection) {
     const url = new URL(window.location.href);
+    if (props.demo) url.pathname = "/";
     for (const key of ["target", "ra", "dec", "fov", "from", "to"])
       url.searchParams.delete(key);
     if (!values) return url;
@@ -487,7 +445,7 @@ export default function SkyExplorer(props: { demo?: boolean }) {
     setHeading(name);
     setLinkStatus("");
     setSelection(values);
-    if (live && window.location.protocol !== "tauri:") {
+    if (!props.demo && window.location.protocol !== "tauri:") {
       window.history.replaceState(window.history.state, "", fieldUrl(values));
     }
   }
@@ -553,10 +511,7 @@ export default function SkyExplorer(props: { demo?: boolean }) {
       return;
     }
 
-    if (
-      live &&
-      (Number(coordinates.fov) < 0.02 || Number(coordinates.fov) > 0.4)
-    ) {
+    if (Number(coordinates.fov) < 0.02 || Number(coordinates.fov) > 0.4) {
       setErrors({ fov: "Enter a field of view from 0.02° to 0.4°." });
       form.querySelector<HTMLInputElement>("#fov")?.focus();
       return;
@@ -589,7 +544,6 @@ export default function SkyExplorer(props: { demo?: boolean }) {
     <section
       class="explorer"
       aria-label="Sky explorer"
-      ref={demoExplorer}
       data-demo-explorer={props.demo && ready() ? "ready" : undefined}
     >
       <div class="explorer-controls">
@@ -618,7 +572,7 @@ export default function SkyExplorer(props: { demo?: boolean }) {
                   aria-describedby={`${field.id}-hint${errors()[field.id] ? ` ${field.id}-error` : ""}`}
                 />
                 <small id={`${field.id}-hint`}>
-                  {live && field.id === "fov" ? "0.02° to 0.4°" : field.hint}
+                  {field.id === "fov" ? "0.02° to 0.4°" : field.hint}
                 </small>
                 <Show when={errors()[field.id]}>
                   <span class="field-error" id={`${field.id}-error`}>
@@ -631,61 +585,55 @@ export default function SkyExplorer(props: { demo?: boolean }) {
           <button type="submit" disabled={!ready()}>
             <Search aria-hidden="true" /> Search archive
           </button>
-          <Show when={live}>
-            <details
-              class="archive-date-filter"
-              open={Boolean(
-                selection()?.from || selection()?.to || dateError(),
-              )}
-            >
-              <summary>Observation dates (UTC)</summary>
-              <div>
-                <div class="coordinate-field">
-                  <label for="archive-from">From</label>
-                  <input id="archive-from" name="from" type="date" />
-                </div>
-                <div class="coordinate-field">
-                  <label for="archive-to">Through</label>
-                  <input
-                    id="archive-to"
-                    name="to"
-                    type="date"
-                    aria-invalid={Boolean(dateError())}
-                  />
-                </div>
+          <details
+            class="archive-date-filter"
+            open={Boolean(selection()?.from || selection()?.to || dateError())}
+          >
+            <summary>Observation dates (UTC)</summary>
+            <div>
+              <div class="coordinate-field">
+                <label for="archive-from">From</label>
+                <input id="archive-from" name="from" type="date" />
               </div>
-              <Show when={dateError()}>
-                <small role="alert" class="field-error">
-                  {dateError()}
-                </small>
-              </Show>
-            </details>
-          </Show>
+              <div class="coordinate-field">
+                <label for="archive-to">Through</label>
+                <input
+                  id="archive-to"
+                  name="to"
+                  type="date"
+                  aria-invalid={Boolean(dateError())}
+                />
+              </div>
+            </div>
+            <Show when={dateError()}>
+              <small role="alert" class="field-error">
+                {dateError()}
+              </small>
+            </Show>
+          </details>
         </form>
-        <Show when={live}>
-          <div class="example-fields">
-            <label for="example-field">Example field</label>
-            <SelectField
-              id="example-field"
-              label="Example field"
-              options={exampleFields.map(({ key, name }) => ({
-                value: key,
-                label: name,
-              }))}
-              value={selection()?.target}
-              placeholder="Choose a target"
-              onChange={(key) => {
-                const example = exampleFields.find(
-                  (entry) => entry.key === key,
-                );
-                if (example) loadExample(example);
-              }}
-            />
-            <Show when={pending()}>
-              <div class="field-actions">
-                <button type="button" onClick={copyFieldLink}>
-                  <Link aria-hidden="true" /> Copy field link
-                </button>
+        <div class="example-fields">
+          <label for="example-field">Example field</label>
+          <SelectField
+            id="example-field"
+            label="Example field"
+            options={exampleFields.map(({ key, name }) => ({
+              value: key,
+              label: name,
+            }))}
+            value={selection()?.target}
+            placeholder="Choose a target"
+            onChange={(key) => {
+              const example = exampleFields.find((entry) => entry.key === key);
+              if (example) loadExample(example);
+            }}
+          />
+          <Show when={pending()}>
+            <div class="field-actions">
+              <button type="button" onClick={copyFieldLink}>
+                <Link aria-hidden="true" /> Copy field link
+              </button>
+              <Show when={!props.demo}>
                 <button
                   type="button"
                   onClick={() => {
@@ -703,59 +651,13 @@ export default function SkyExplorer(props: { demo?: boolean }) {
                 >
                   Back to M101
                 </button>
-              </div>
-              <Show when={linkStatus()}>
-                <small role="status">{linkStatus()}</small>
               </Show>
+            </div>
+            <Show when={linkStatus()}>
+              <small role="status">{linkStatus()}</small>
             </Show>
-          </div>
-        </Show>
-        <Show when={props.demo && selection()}>
-          <section
-            class="archive-results"
-            aria-label="IRSA search results"
-            aria-busy={archive.loading}
-          >
-            <h3 class="term-label">
-              SPHEREx archive{" "}
-              <TermHelp term="SPHEREx">
-                A space telescope that surveys the sky at infrared wavelengths.
-                The archive lists exposures that cover your search region.
-              </TermHelp>
-            </h3>
-            <Show when={!archive.loading} fallback={<p>Searching IRSA…</p>}>
-              <Show when={archive()} keyed>
-                {(result) =>
-                  "observations" in result ? (
-                    <Show
-                      when={result.observations.length > 0}
-                      fallback={<p>No observations found.</p>}
-                    >
-                      <ul>
-                        <For each={result.observations}>
-                          {(entry) => (
-                            <li>
-                              <a href={entry.source}>
-                                {entry.id} · {entry.detector}
-                              </a>{" "}
-                              · {entry.date?.slice(0, 10) ?? "Date unavailable"}
-                            </li>
-                          )}
-                        </For>
-                      </ul>
-                    </Show>
-                  ) : (
-                    <p>
-                      {"offline" in result
-                        ? "Archive search is available in the web app."
-                        : "IRSA search unavailable."}
-                    </p>
-                  )
-                }
-              </Show>
-            </Show>
-          </section>
-        </Show>
+          </Show>
+        </div>
       </div>
       <Show when={pending()}>
         <Show
@@ -804,409 +706,412 @@ export default function SkyExplorer(props: { demo?: boolean }) {
           </Show>
         </Show>
       </Show>
-      <div hidden={pending()}>
-        <section class="viewer" aria-labelledby="viewer-title">
-          <div class="viewer-header">
-            <h2 id="viewer-title">Pinwheel Galaxy · M101</h2>
-            <div class="viewer-tools">
-              <button
-                type="button"
-                aria-pressed={markers()}
-                disabled={comparing()}
-                onClick={() => setMarkers(!markers())}
-              >
-                <MapPin aria-hidden="true" /> Markers
-              </button>
-              <button
-                type="button"
-                aria-pressed={comparing()}
-                onClick={toggleComparison}
-              >
-                <Split aria-hidden="true" /> Swipe compare
-              </button>
+      <Show when={!props.demo}>
+        <div hidden={pending()}>
+          <section class="viewer" aria-labelledby="viewer-title">
+            <div class="viewer-header">
+              <h2 id="viewer-title">Pinwheel Galaxy · M101</h2>
+              <div class="viewer-tools">
+                <button
+                  type="button"
+                  aria-pressed={markers()}
+                  disabled={comparing()}
+                  onClick={() => setMarkers(!markers())}
+                >
+                  <MapPin aria-hidden="true" /> Markers
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={comparing()}
+                  onClick={toggleComparison}
+                >
+                  <Split aria-hidden="true" /> Swipe compare
+                </button>
+              </div>
             </div>
-          </div>
-          <div class="viewer-image">
-            <figure>
-              <div class="sky-window" ref={viewport}>
-                <div class="sky-image" style={{ width: `${zoom() * 100}%` }}>
-                  <img
-                    src={`/observations/${observation().name}.png`}
-                    width={observation().width}
-                    height={observation().height}
-                    alt="Grayscale SPHEREx infrared cutout of the Pinwheel Galaxy and surrounding sources"
-                    tabindex="0"
-                    aria-describedby="pixel-position"
-                    onPointerMove={readPointer}
-                    onPointerLeave={() => setPixel(undefined)}
-                    onKeyDown={readKeyboard}
-                    onClick={(event) => {
-                      const point = readPointer(event);
-                      const pinned = pinnedPixel();
-                      if (
-                        point &&
-                        (point.x !== pinned?.x || point.y !== pinned?.y)
-                      ) {
-                        setPinnedPixel(point);
-                      }
-                    }}
-                  />
-                  <Show when={comparing()}>
+            <div class="viewer-image">
+              <figure>
+                <div class="sky-window" ref={viewport}>
+                  <div class="sky-image" style={{ width: `${zoom() * 100}%` }}>
                     <img
-                      class="comparison-image"
-                      src={`/observations/${reference.name}.png`}
-                      width={reference.width}
-                      height={reference.height}
-                      alt=""
-                      style={{
-                        "clip-path": `inset(0 ${100 - divider()}% 0 0)`,
+                      src={`/observations/${observation().name}.png`}
+                      width={observation().width}
+                      height={observation().height}
+                      alt="Grayscale SPHEREx infrared cutout of the Pinwheel Galaxy and surrounding sources"
+                      tabindex="0"
+                      aria-describedby="pixel-position"
+                      onPointerMove={readPointer}
+                      onPointerLeave={() => setPixel(undefined)}
+                      onKeyDown={readKeyboard}
+                      onClick={(event) => {
+                        const point = readPointer(event);
+                        const pinned = pinnedPixel();
+                        if (
+                          point &&
+                          (point.x !== pinned?.x || point.y !== pinned?.y)
+                        ) {
+                          setPinnedPixel(point);
+                        }
                       }}
                     />
-                    <ComparisonDivider
-                      id="swipe-divider"
-                      value={divider()}
-                      onChange={setDivider}
-                    />
-                  </Show>
-                  <Show when={activePixel()} keyed>
-                    {(point) => (
-                      <span
-                        class="pixel-reticle"
-                        classList={{
-                          "pixel-reticle-pinned": Boolean(pinnedPixel()),
-                        }}
-                        aria-hidden="true"
+                    <Show when={comparing()}>
+                      <img
+                        class="comparison-image"
+                        src={`/observations/${reference.name}.png`}
+                        width={reference.width}
+                        height={reference.height}
+                        alt=""
                         style={{
-                          left: `${((point.x + 0.5) / observation().width) * 100}%`,
-                          top: `${((point.y + 0.5) / observation().height) * 100}%`,
+                          "clip-path": `inset(0 ${100 - divider()}% 0 0)`,
                         }}
                       />
-                    )}
-                  </Show>
-                  <Show when={markers() && !comparing()}>
-                    <For each={sources()}>
-                      {(source, i) => (
-                        <Show when={source.display} keyed>
-                          {(position) => (
-                            <button
-                              class="source-marker"
-                              type="button"
-                              aria-label={`Inspect source ${i() + 1}`}
-                              aria-pressed={selectedSource() === i()}
-                              style={{
-                                left: `${position.x * 100}%`,
-                                top: `${position.y * 100}%`,
-                              }}
-                              onClick={() => inspectSource(i())}
-                            >
-                              <span>{i() + 1}</span>
-                            </button>
-                          )}
-                        </Show>
+                      <ComparisonDivider
+                        id="swipe-divider"
+                        value={divider()}
+                        onChange={setDivider}
+                      />
+                    </Show>
+                    <Show when={activePixel()} keyed>
+                      {(point) => (
+                        <span
+                          class="pixel-reticle"
+                          classList={{
+                            "pixel-reticle-pinned": Boolean(pinnedPixel()),
+                          }}
+                          aria-hidden="true"
+                          style={{
+                            left: `${((point.x + 0.5) / observation().width) * 100}%`,
+                            top: `${((point.y + 0.5) / observation().height) * 100}%`,
+                          }}
+                        />
                       )}
-                    </For>
-                  </Show>
-                </div>
-              </div>
-              <div
-                class="image-controls"
-                role="group"
-                aria-label="Image inspection"
-              >
-                <button
-                  type="button"
-                  aria-label="Zoom out"
-                  disabled={zoom() === 1}
-                  onClick={() => changeZoom(zoom() / 2)}
-                >
-                  <Minus aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  aria-label="Reset zoom"
-                  onClick={() => changeZoom(1)}
-                >
-                  <Crosshair aria-hidden="true" /> {zoom()}×
-                </button>
-                <button
-                  type="button"
-                  aria-label="Zoom in"
-                  disabled={zoom() === 4}
-                  onClick={() => changeZoom(zoom() * 2)}
-                >
-                  <Plus aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={Boolean(pinnedPixel())}
-                  onClick={togglePin}
-                >
-                  {pinnedPixel() ? (
-                    <PinOff aria-hidden="true" />
-                  ) : (
-                    <Pin aria-hidden="true" />
-                  )}
-                  {pinnedPixel() ? "Unpin" : "Pin position"}
-                </button>
-              </div>
-              <Show when={comparing()}>
-                <div class="swipe-control">
-                  <div class="comparison-labels">
-                    <span>
-                      {reference.date.slice(0, 10)} ·{" "}
-                      {reference.wavelength.toFixed(3)} µm
-                    </span>
-                    <span>
-                      {observation().date.slice(0, 10)} ·{" "}
-                      {observation().wavelength.toFixed(3)} µm
-                    </span>
+                    </Show>
+                    <Show when={markers() && !comparing()}>
+                      <For each={sources()}>
+                        {(source, i) => (
+                          <Show when={source.display} keyed>
+                            {(position) => (
+                              <button
+                                class="source-marker"
+                                type="button"
+                                aria-label={`Inspect source ${i() + 1}`}
+                                aria-pressed={selectedSource() === i()}
+                                style={{
+                                  left: `${position.x * 100}%`,
+                                  top: `${position.y * 100}%`,
+                                }}
+                                onClick={() => inspectSource(i())}
+                              >
+                                <span>{i() + 1}</span>
+                              </button>
+                            )}
+                          </Show>
+                        )}
+                      </For>
+                    </Show>
                   </div>
-                  <small>Both wavelength and observation time differ.</small>
                 </div>
-              </Show>
-            </figure>
-          </div>
-          <div class="viewer-inspector">
-            <div class="timeline">
-              <div class="term-label">
-                <label for="observation">Observation (UTC)</label>
-                <TermHelp term="UTC">
-                  Coordinated Universal Time, the common time standard used for
-                  these observation timestamps.
-                </TermHelp>
-              </div>
-              <SelectField
-                id="observation"
-                label="Observation (UTC)"
-                options={observations
-                  .map((entry, i) => ({
-                    value: String(i),
-                    label: entry.date.replace("T", " ").slice(0, 19),
-                  }))
-                  .filter((option) => !comparing() || option.value !== "0")}
-                value={String(index())}
-                onChange={(value) => {
-                  setPlaying(false);
-                  showObservation(Number(value));
-                }}
-              />
-              <div
-                class="playback"
-                role="group"
-                aria-label="Observation playback"
-              >
-                <button
-                  type="button"
-                  aria-label="Previous observation"
-                  title="Previous observation"
-                  onClick={() => {
-                    setPlaying(false);
-                    step(-1);
-                  }}
+                <div
+                  class="image-controls"
+                  role="group"
+                  aria-label="Image inspection"
                 >
-                  <ChevronLeft aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setComparing(false);
-                    setPlaying(!playing());
-                  }}
-                >
-                  {playing() ? (
-                    <Pause aria-hidden="true" />
-                  ) : (
-                    <Play aria-hidden="true" />
-                  )}
-                  {playing() ? "Pause" : "Play"}
-                </button>
-                <button
-                  type="button"
-                  aria-label="Next observation"
-                  title="Next observation"
-                  onClick={() => {
-                    setPlaying(false);
-                    step(1);
-                  }}
-                >
-                  <ChevronRight aria-hidden="true" />
-                </button>
-              </div>
-            </div>
-            <PlaybackSpeed value={speed()} onChange={setSpeed} />
-            <div class="observation-context">
-              <dl>
-                <div>
-                  <dt>Archive</dt>
-                  <dd>
-                    <a href={observation().source}>SPHEREx DR1 · IRSA</a>
-                  </dd>
+                  <button
+                    type="button"
+                    aria-label="Zoom out"
+                    disabled={zoom() === 1}
+                    onClick={() => changeZoom(zoom() / 2)}
+                  >
+                    <Minus aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Reset zoom"
+                    onClick={() => changeZoom(1)}
+                  >
+                    <Crosshair aria-hidden="true" /> {zoom()}×
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Zoom in"
+                    disabled={zoom() === 4}
+                    onClick={() => changeZoom(zoom() * 2)}
+                  >
+                    <Plus aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={Boolean(pinnedPixel())}
+                    onClick={togglePin}
+                  >
+                    {pinnedPixel() ? (
+                      <PinOff aria-hidden="true" />
+                    ) : (
+                      <Pin aria-hidden="true" />
+                    )}
+                    {pinnedPixel() ? "Unpin" : "Pin position"}
+                  </button>
                 </div>
-                <div>
-                  <dt>Detector</dt>
-                  <dd>{observation().detector}</dd>
-                </div>
-                <div>
-                  <dt>Wavelength</dt>
-                  <dd>≈{observation().wavelength.toFixed(3)} µm</dd>
-                </div>
-              </dl>
-              <p id="pixel-position">
-                {pinnedPixel() && sky() ? "Pinned · " : ""}
-                <Show
-                  when={sky()}
-                  fallback={
-                    grid.loading
-                      ? "Loading coordinates…"
-                      : grid() === null
-                        ? "Coordinates unavailable."
-                        : "Click or press Enter to pin a position."
-                  }
-                >
-                  {(position) => (
-                    <span>
-                      RA {position()[0].toFixed(6)}° · Dec{" "}
-                      {position()[1].toFixed(6)}°
-                    </span>
-                  )}
+                <Show when={comparing()}>
+                  <div class="swipe-control">
+                    <div class="comparison-labels">
+                      <span>
+                        {reference.date.slice(0, 10)} ·{" "}
+                        {reference.wavelength.toFixed(3)} µm
+                      </span>
+                      <span>
+                        {observation().date.slice(0, 10)} ·{" "}
+                        {observation().wavelength.toFixed(3)} µm
+                      </span>
+                    </div>
+                    <small>Both wavelength and observation time differ.</small>
+                  </div>
                 </Show>
-              </p>
+              </figure>
             </div>
-            <Show when={spectrum()}>
-              {(samples) => (
-                <PixelSpectrum
-                  samples={samples()}
-                  activeIndex={index()}
-                  selectObservation={(next) => {
+            <div class="viewer-inspector">
+              <div class="timeline">
+                <div class="term-label">
+                  <label for="observation">Observation (UTC)</label>
+                  <TermHelp term="UTC">
+                    Coordinated Universal Time, the common time standard used
+                    for these observation timestamps.
+                  </TermHelp>
+                </div>
+                <SelectField
+                  id="observation"
+                  label="Observation (UTC)"
+                  options={observations
+                    .map((entry, i) => ({
+                      value: String(i),
+                      label: entry.date.replace("T", " ").slice(0, 19),
+                    }))
+                    .filter((option) => !comparing() || option.value !== "0")}
+                  value={String(index())}
+                  onChange={(value) => {
                     setPlaying(false);
-                    setComparing(false);
-                    showObservation(next);
+                    showObservation(Number(value));
                   }}
                 />
-              )}
-            </Show>
-            <Show when={pinnedPixel() && pixelSamples() === null}>
-              <p role="status">Pixel spectrum unavailable.</p>
-            </Show>
-            <Show when={inspected()} keyed>
-              {(source) => (
-                <section
-                  aria-label="Source inspection"
-                  class="source-inspection"
-                  aria-live="polite"
+                <div
+                  class="playback"
+                  role="group"
+                  aria-label="Observation playback"
                 >
-                  <strong>Source {(selectedSource() ?? 0) + 1}</strong>
-                  <span>
-                    RA {source.ra.toFixed(5)}° · Dec {source.dec.toFixed(5)}°
-                  </span>
-                  <span>
-                    Peak SNR {source.peakSnr.toFixed(1)} ·{" "}
-                    <Show
-                      when={matches(selectedSource() ?? 0)}
-                      keyed
-                      fallback="Gaia match unavailable"
-                    >
-                      {(nearby) => `${nearby.length} nearby Gaia entries`}
-                    </Show>
-                  </span>
-                </section>
-              )}
-            </Show>
-          </div>
-          <details class="detections" id="detected-sources" ref={sourceDetails}>
-            <summary>Detected sources ({sources().length})</summary>
-            <p class="term-label">
-              Detection metrics{" "}
-              <TermHelp term="detection metrics">
-                Peak SNR compares the signal at the source center, after
-                background subtraction, with estimated noise. Gaia DR3 lists
-                nearby catalog sources, which can include chance alignments.
-              </TermHelp>
-            </p>
-            <p class="evidence-export">
-              <a
-                href={evidence()}
-                download={`${observation().id}-evidence.json`}
-              >
-                <Download aria-hidden="true" /> Export detections and provenance
-              </a>
-            </p>
-            <Show
-              when={sources().length > 0}
-              fallback={<p>No sources passed the detection threshold.</p>}
-            >
-              <div
-                class="table-scroll"
-                tabindex="0"
-                role="region"
-                aria-label="Detected sources"
-              >
-                <table>
-                  <caption>Experimental single-exposure detections</caption>
-                  <thead>
-                    <tr>
-                      <th scope="col">Source</th>
-                      <th scope="col">RA</th>
-                      <th scope="col">Dec</th>
-                      <th scope="col">Peak SNR</th>
-                      <th scope="col">Gaia DR3 nearby</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <For each={sources()}>
-                      {(source, i) => (
-                        <tr
-                          classList={{
-                            "source-selected": selectedSource() === i(),
-                          }}
-                        >
-                          <td>
-                            <button
-                              class="source-row-button"
-                              type="button"
-                              aria-pressed={selectedSource() === i()}
-                              onClick={() => inspectSource(i())}
-                            >
-                              {i() + 1}
-                            </button>
-                          </td>
-                          <td>{source.ra.toFixed(5)}°</td>
-                          <td>{source.dec.toFixed(5)}°</td>
-                          <td>{source.peakSnr.toFixed(1)}</td>
-                          <td>
-                            <Show
-                              when={matches(i())?.length}
-                              fallback={
-                                matches(i())
-                                  ? "No nearby entry"
-                                  : "Gaia match unavailable"
-                              }
-                            >
-                              <ul>
-                                <For each={matches(i())}>
-                                  {(match) => (
-                                    <li>
-                                      {match.sourceId} ·{" "}
-                                      {match.separation.toFixed(2)}″
-                                      {match.propagated
-                                        ? ""
-                                        : " (reference epoch)"}
-                                    </li>
-                                  )}
-                                </For>
-                              </ul>
-                            </Show>
-                          </td>
-                        </tr>
-                      )}
-                    </For>
-                  </tbody>
-                </table>
+                  <button
+                    type="button"
+                    aria-label="Previous observation"
+                    title="Previous observation"
+                    onClick={() => {
+                      setPlaying(false);
+                      step(-1);
+                    }}
+                  >
+                    <ChevronLeft aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setComparing(false);
+                      setPlaying(!playing());
+                    }}
+                  >
+                    {playing() ? (
+                      <Pause aria-hidden="true" />
+                    ) : (
+                      <Play aria-hidden="true" />
+                    )}
+                    {playing() ? "Pause" : "Play"}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Next observation"
+                    title="Next observation"
+                    onClick={() => {
+                      setPlaying(false);
+                      step(1);
+                    }}
+                  >
+                    <ChevronRight aria-hidden="true" />
+                  </button>
+                </div>
               </div>
-            </Show>
-          </details>
-        </section>
-      </div>
+              <PlaybackSpeed value={speed()} onChange={setSpeed} />
+              <div class="observation-context">
+                <dl>
+                  <div>
+                    <dt>Archive</dt>
+                    <dd>
+                      <a href={observation().source}>SPHEREx DR1 · IRSA</a>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Detector</dt>
+                    <dd>{observation().detector}</dd>
+                  </div>
+                  <div>
+                    <dt>Wavelength</dt>
+                    <dd>≈{observation().wavelength.toFixed(3)} µm</dd>
+                  </div>
+                </dl>
+                <p id="pixel-position">
+                  {pinnedPixel() && sky() ? "Pinned · " : ""}
+                  <Show
+                    when={sky()}
+                    fallback={
+                      grid.loading
+                        ? "Loading coordinates…"
+                        : grid() === null
+                          ? "Coordinates unavailable."
+                          : "Click or press Enter to pin a position."
+                    }
+                  >
+                    {(position) => (
+                      <span>
+                        RA {position()[0].toFixed(6)}° · Dec{" "}
+                        {position()[1].toFixed(6)}°
+                      </span>
+                    )}
+                  </Show>
+                </p>
+              </div>
+              <Show when={spectrum()}>
+                {(samples) => (
+                  <PixelSpectrum
+                    samples={samples()}
+                    activeIndex={index()}
+                    selectObservation={(next) => {
+                      setPlaying(false);
+                      setComparing(false);
+                      showObservation(next);
+                    }}
+                  />
+                )}
+              </Show>
+              <Show when={pinnedPixel() && pixelSamples() === null}>
+                <p role="status">Pixel spectrum unavailable.</p>
+              </Show>
+              <Show when={inspected()} keyed>
+                {(source) => (
+                  <section
+                    aria-label="Source inspection"
+                    class="source-inspection"
+                    aria-live="polite"
+                  >
+                    <strong>Source {(selectedSource() ?? 0) + 1}</strong>
+                    <span>
+                      RA {source.ra.toFixed(5)}° · Dec {source.dec.toFixed(5)}°
+                    </span>
+                    <span>
+                      Peak SNR {source.peakSnr.toFixed(1)} ·{" "}
+                      <Show
+                        when={matches(selectedSource() ?? 0)}
+                        keyed
+                        fallback="Gaia match unavailable"
+                      >
+                        {(nearby) => `${nearby.length} nearby Gaia entries`}
+                      </Show>
+                    </span>
+                  </section>
+                )}
+              </Show>
+            </div>
+            <details class="detections" id="detected-sources">
+              <summary>Detected sources ({sources().length})</summary>
+              <p class="term-label">
+                Detection metrics{" "}
+                <TermHelp term="detection metrics">
+                  Peak SNR compares the signal at the source center, after
+                  background subtraction, with estimated noise. Gaia DR3 lists
+                  nearby catalog sources, which can include chance alignments.
+                </TermHelp>
+              </p>
+              <p class="evidence-export">
+                <a
+                  href={evidence()}
+                  download={`${observation().id}-evidence.json`}
+                >
+                  <Download aria-hidden="true" /> Export detections and
+                  provenance
+                </a>
+              </p>
+              <Show
+                when={sources().length > 0}
+                fallback={<p>No sources passed the detection threshold.</p>}
+              >
+                <div
+                  class="table-scroll"
+                  tabindex="0"
+                  role="region"
+                  aria-label="Detected sources"
+                >
+                  <table>
+                    <caption>Experimental single-exposure detections</caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">Source</th>
+                        <th scope="col">RA</th>
+                        <th scope="col">Dec</th>
+                        <th scope="col">Peak SNR</th>
+                        <th scope="col">Gaia DR3 nearby</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <For each={sources()}>
+                        {(source, i) => (
+                          <tr
+                            classList={{
+                              "source-selected": selectedSource() === i(),
+                            }}
+                          >
+                            <td>
+                              <button
+                                class="source-row-button"
+                                type="button"
+                                aria-pressed={selectedSource() === i()}
+                                onClick={() => inspectSource(i())}
+                              >
+                                {i() + 1}
+                              </button>
+                            </td>
+                            <td>{source.ra.toFixed(5)}°</td>
+                            <td>{source.dec.toFixed(5)}°</td>
+                            <td>{source.peakSnr.toFixed(1)}</td>
+                            <td>
+                              <Show
+                                when={matches(i())?.length}
+                                fallback={
+                                  matches(i())
+                                    ? "No nearby entry"
+                                    : "Gaia match unavailable"
+                                }
+                              >
+                                <ul>
+                                  <For each={matches(i())}>
+                                    {(match) => (
+                                      <li>
+                                        {match.sourceId} ·{" "}
+                                        {match.separation.toFixed(2)}″
+                                        {match.propagated
+                                          ? ""
+                                          : " (reference epoch)"}
+                                      </li>
+                                    )}
+                                  </For>
+                                </ul>
+                              </Show>
+                            </td>
+                          </tr>
+                        )}
+                      </For>
+                    </tbody>
+                  </table>
+                </div>
+              </Show>
+            </details>
+          </section>
+        </div>
+      </Show>
     </section>
   );
 }

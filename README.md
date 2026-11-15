@@ -190,8 +190,7 @@ difference photometry or demonstrate motion in any individual source.
 Use **Copy field link** to share the current coordinates and field size or an
 archived example. Reopening a coordinate link runs a new archive search, so
 the available exposures can change. Use **Swipe compare** in **Explore**
-when a comparable pair is available. The demo includes a separate ZTF
-reference example. Frame reports reference the exact FITS
+when a comparable pair is available. Frame reports reference the exact FITS
 cutout used for measurement.
 
 Use **Markers** to inspect point-like detections computed in the native FITS
@@ -289,14 +288,15 @@ They were measured on 2024-12-26 at observatory 703, MPC track
 the common per-axis uncertainty. Observation identifiers are included in
 the report so the sequence can be checked against the archive.
 
-Open `/demo` for a hands-free tour of archive search, source inspection,
-swipe comparison, the pinned-pixel spectrum, the north ecliptic pole,
-image subtraction, and the archived astrometry review. The sidebar checklist
-shows the active and completed steps. Reload the page to replay the tour.
+Open `/demo/` for an automatic tour of the current SPHEREx explorer.
+The tour opens the north ecliptic pole, changes spectral band, inspects a
+source, plays the observations, compares dates, and shows the frame report
+export. The sidebar checklist shows progress. Reload the page to replay.
 
 The demo uses a large animated pointer and a spotlight to follow the active
-control. The cursor activates the displayed controls and clicks Next automatically. Both overlays leave the page interactive. Reduced-motion settings
-disable the pointer animation and smooth scrolling.
+control. The cursor activates the displayed controls as the checklist advances.
+Both overlays leave the page interactive. Reduced-motion settings disable the
+pointer animation and smooth scrolling.
 
 For the existing Ubuntu EC2 deployment, run `deploy/ec2-update.sh` through
 Systems Manager with the full published Git revision as its argument. It

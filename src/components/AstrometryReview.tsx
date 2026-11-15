@@ -20,7 +20,7 @@ type Analysis = {
 const format = (value: number) =>
   new Intl.NumberFormat("en", { maximumSignificantDigits: 5 }).format(value);
 
-export default function AstrometryReview(props: { demo?: boolean }) {
+export default function AstrometryReview() {
   const [ready, setReady] = createSignal(false);
   onMount(() => setReady(true));
   const [csv, setCsv] = createSignal("");
@@ -115,11 +115,7 @@ export default function AstrometryReview(props: { demo?: boolean }) {
   }
 
   return (
-    <section
-      class="astrometry-review"
-      aria-labelledby="astrometry-title"
-      data-demo-review={props.demo && ready() ? "ready" : undefined}
-    >
+    <section class="astrometry-review" aria-labelledby="astrometry-title">
       <h2 id="astrometry-title" class="term-label">
         Astrometry review{" "}
         <TermHelp term="astrometry">

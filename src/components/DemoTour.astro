@@ -3,69 +3,19 @@ import Check from "@lucide/astro/icons/check";
 import Circle from "@lucide/astro/icons/circle";
 
 const chapters = [
-  {
-    title: "Search the sky",
-    focus: ".explorer-controls",
-    control: ".explorer-controls button[type=submit]",
-    action: "search",
-    duration: 5200,
-  },
-  {
-    title: "Inspect a source",
-    focus: ".viewer",
-    control: ".source-marker",
-    action: "sources",
-    duration: 3600,
-  },
-  {
-    title: "Compare two exposures",
-    focus: ".viewer",
-    control: ".viewer-tools button[aria-pressed]:last-child",
-    action: "compare",
-    duration: 3900,
-  },
-  {
-    title: "Read a pixel spectrum",
-    focus: ".viewer",
-    control: ".image-controls button[aria-pressed]",
-    action: "spectrum",
-    result: ".pixel-spectrum",
-    duration: 4600,
-  },
-  {
-    title: "Explore a deep field",
-    focus: ".archive-viewer",
-    control: ".archive-viewer button[aria-label='Next observation']",
-    action: "deep",
-    duration: 4200,
-  },
-  {
-    title: "Inspect the difference",
-    focus: ".difference-preview",
-    control: ".difference-preview summary",
-    action: "difference",
-    duration: 3600,
-  },
-  {
-    title: "Review a track",
-    focus: ".astrometry-review",
-    control: ".archived-track",
-    action: "review",
-    result: ".astrometry-results",
-    duration: 5200,
-  },
+  { action: "field", title: "Open a deep field" },
+  { action: "band", title: "Choose a spectral band" },
+  { action: "source", title: "Inspect a source" },
+  { action: "playback", title: "Play the observations" },
+  { action: "compare", title: "Compare two dates" },
+  { action: "report", title: "Find the frame report" },
 ];
 ---
 
-<section
-  id="demo-tour"
-  class="demo-checklist"
-  aria-label="Demo steps"
-  data-chapters={JSON.stringify(chapters)}
->
+<section id="demo-tour" class="demo-checklist" aria-label="Demo steps">
   <ol>
-    {chapters.map(({ title }) => (
-      <li>
+    {chapters.map(({ action, title }) => (
+      <li data-demo-step={action}>
         <Circle class="step-pending" aria-hidden="true" />
         <Check class="step-done" aria-hidden="true" />
         <span>{title}</span>
@@ -100,65 +50,47 @@ const chapters = [
   const tour = document.querySelector<HTMLElement>("#demo-tour");
 
   if (tour) {
-    const steps = [...tour.querySelectorAll<HTMLElement>("li")];
+    const steps = [...tour.querySelectorAll<HTMLElement>("[data-demo-step]")];
     const status = tour.querySelector<HTMLElement>("[role=status]")!;
     const spotlight = document.querySelector<HTMLElement>(".demo-spotlight")!;
     const pointer = document.querySelector<HTMLElement>(".demo-pointer")!;
     const ripple = document.querySelector<HTMLElement>(".demo-ripple")!;
     document.body.append(spotlight, pointer, ripple);
-    const explorer = '[data-demo-explorer="ready"]';
-    const review = '[data-demo-review="ready"]';
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-
-    const chapters = JSON.parse(tour.dataset.chapters!) as {
-      title: string;
-      focus: string;
-      control: string;
-      action: string;
-      duration: number;
-      result?: string;
-    }[];
-    let index = 0;
-    let finished = false;
-    let timeout: number | undefined;
+    const explorer = '[data-demo-explorer="ready"]';
+    const archive = ".archive-viewer";
+    const playback = '[data-demo-control="playback"]';
     let focus: Element | null = null;
     let pendingFrame = 0;
+    let timeout: number | undefined;
+    let finished = false;
 
-    function schedule(delay: number, action: () => void) {
-      timeout = window.setTimeout(() => {
-        timeout = undefined;
-        action();
-      }, delay);
-    }
-
-    function dispatch(selector: string, action: string) {
-      document
-        .querySelector(selector)
-        ?.dispatchEvent(new CustomEvent("seeyou-demo", { detail: action }));
+    function wait(delay: number) {
+      return new Promise<void>((resolve) => {
+        timeout = window.setTimeout(resolve, delay);
+      });
     }
 
     function refreshOverlays() {
       pendingFrame = 0;
-      if (focus && !finished) {
-        const bounds = focus.getBoundingClientRect();
-        const left = Math.max(0, bounds.left - 6);
-        const top = Math.max(0, bounds.top - 6);
-        const right = Math.min(innerWidth, bounds.right + 6);
-        const bottom = Math.min(innerHeight, bounds.bottom + 6);
-        spotlight.hidden = right <= left || bottom <= top;
-        if (!spotlight.hidden) {
-          Object.assign(spotlight.style, {
-            left: `${left}px`,
-            top: `${top}px`,
-            width: `${right - left}px`,
-            height: `${bottom - top}px`,
-          });
-        }
-      } else {
+      const bounds = focus?.getBoundingClientRect();
+      if (finished || !bounds) {
         spotlight.hidden = true;
+        return;
       }
-
-      if (finished) pointer.hidden = true;
+      const left = Math.max(0, bounds.left - 6);
+      const top = Math.max(0, bounds.top - 6);
+      const right = Math.min(innerWidth, bounds.right + 6);
+      const bottom = Math.min(innerHeight, bounds.bottom + 6);
+      spotlight.hidden = right <= left || bottom <= top;
+      if (!spotlight.hidden) {
+        Object.assign(spotlight.style, {
+          left: `${left}px`,
+          top: `${top}px`,
+          width: `${right - left}px`,
+          height: `${bottom - top}px`,
+        });
+      }
     }
 
     function trackViewport() {
@@ -166,23 +98,48 @@ const chapters = [
         pendingFrame = window.requestAnimationFrame(refreshOverlays);
     }
 
-    function moveTo(selector: string, offset = 0.5) {
-      const bounds = document.querySelector(selector)?.getBoundingClientRect();
-      if (!bounds) return;
-      const x = bounds.left + bounds.width * offset;
+    function moveTo(target: Element, position = 0.5) {
+      const bounds = target.getBoundingClientRect();
+      const x = bounds.left + bounds.width * position;
       const y = bounds.top + bounds.height / 2;
       pointer.hidden = x < 0 || y < 0 || x >= innerWidth || y >= innerHeight;
       if (!pointer.hidden)
         pointer.style.transform = `translate(${x}px, ${y}px)`;
     }
 
-    function clickControl(control: HTMLElement | null) {
-      if (!control) return;
+    async function pointAt(target: HTMLElement, region: Element = target) {
+      focus = region;
+      target.scrollIntoView({
+        block: "center",
+        behavior: reducedMotion.matches ? "instant" : "smooth",
+      });
+      trackViewport();
+      await wait(reducedMotion.matches ? 40 : 360);
+      moveTo(target);
+      await wait(reducedMotion.matches ? 40 : 490);
+    }
+
+    async function find<T extends HTMLElement = HTMLElement>(selector: string) {
+      const deadline = performance.now() + 6500;
+      do {
+        const target = document.querySelector<T>(selector);
+        if (target?.getClientRects().length) return target;
+        await wait(80);
+      } while (performance.now() < deadline);
+      throw new Error(`Demo control unavailable: ${selector}`);
+    }
+
+    async function press(selector: string, region?: string) {
+      const target = await find(selector);
+      await pointAt(
+        target,
+        region ? (document.querySelector(region) ?? target) : target,
+      );
       if (!pointer.hidden && !reducedMotion.matches) {
         ripple.style.transform = pointer.style.transform;
         ripple.animate(
           [
-            { opacity: 0.75, scale: 0.35 },
+            { opacity: 0.8, scale: 0.35 },
             { opacity: 0, scale: 1.55 },
           ],
           { duration: 430, easing: "ease-out" },
@@ -198,138 +155,137 @@ const chapters = [
             { duration: 230, easing: "ease-out" },
           );
       }
-      control.click();
+      const event = {
+        bubbles: true,
+        cancelable: true,
+        pointerType: "mouse",
+        button: 0,
+      };
+      target.dispatchEvent(new PointerEvent("pointerdown", event));
+      target.dispatchEvent(new PointerEvent("pointerup", event));
+      target.click();
     }
 
-    function setSwipe(value: number) {
-      const slider = document.querySelector<HTMLInputElement>("#swipe-divider");
-      if (!slider) return;
-      slider.value = String(value);
-      slider.dispatchEvent(new Event("input", { bubbles: true }));
-    }
-
-    function scrollTo(target: Element | null, block: ScrollLogicalPosition) {
-      target?.scrollIntoView({
-        block,
-        behavior: reducedMotion.matches ? "instant" : "smooth",
-      });
-    }
-
-    function showChapter() {
-      const chapter = chapters[index];
-      for (const [stepIndex, step] of steps.entries()) {
-        const completed =
-          stepIndex < index && !step.hasAttribute("data-skipped");
-        step.toggleAttribute("data-complete", completed);
-        step
-          .querySelector("[data-step-result]")
-          ?.toggleAttribute(
-            "hidden",
-            !completed && !step.hasAttribute("data-skipped"),
-          );
-        if (stepIndex === index) step.setAttribute("aria-current", "step");
-        else step.removeAttribute("aria-current");
+    async function selectOption(trigger: string, value: string) {
+      await press(trigger);
+      const selector = `[role="option"][data-option-value="${value}"]`;
+      const option = await find(selector);
+      const label = option.textContent?.trim();
+      await press(selector, ".select-menu");
+      if (
+        !label ||
+        !document.querySelector(trigger)?.textContent?.includes(label)
+      ) {
+        throw new Error(`Demo selection failed: ${value}`);
       }
+    }
 
-      if (!chapter) {
-        finished = true;
-        status.textContent = "Tour complete";
-        refreshOverlays();
-        return;
-      }
+    function setRange(input: HTMLInputElement, value: number) {
+      input.value = String(value);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    }
 
-      status.textContent = chapter.title;
-      dispatch(explorer, chapter.action);
-      if (chapter.action === "difference") {
-        const details = document.querySelector<HTMLDetailsElement>(
-          ".difference-preview details",
+    const actions: Record<string, () => Promise<void>> = {
+      async field() {
+        await selectOption("#example-field", "nep");
+        const image = await find<HTMLImageElement>(
+          `${archive} .archive-image img`,
         );
-        if (details) details.open = false;
-      }
-
-      function advance() {
-        index += 1;
-        showChapter();
-      }
-
-      const waitUntil = performance.now() + 7000;
-      function demonstrate() {
-        const control = document.querySelector<HTMLElement>(chapter.control);
-        if (
-          chapter.action === "deep" &&
-          !control &&
-          performance.now() < waitUntil
-        ) {
-          schedule(120, demonstrate);
-          return;
-        }
-        if (!control) {
-          const step = steps[index];
-          step?.setAttribute("data-skipped", "");
-          const result = step?.querySelector("[data-step-result]");
-          if (result) result.textContent = "Unavailable";
-          advance();
-          return;
-        }
-        focus = document.querySelector(chapter.focus);
-        scrollTo(control ?? focus, "center");
-        trackViewport();
-
-        schedule(reducedMotion.matches ? 60 : 460, () => {
-          moveTo(chapter.control);
-          schedule(reducedMotion.matches ? 60 : 540, () => {
-            clickControl(control);
-            if (chapter.action === "sources")
-              focus = document.querySelector(".sky-window");
-            if (chapter.action === "compare")
-              focus = document.querySelector(".viewer figure");
-            trackViewport();
-
-            if (chapter.action === "compare") {
-              const divider = "#swipe-divider";
-              setSwipe(50);
-              scrollTo(document.querySelector(divider), "nearest");
-              schedule(220, () => {
-                moveTo(divider);
-                schedule(520, () => {
-                  moveTo(divider, 0.7);
-                  setSwipe(70);
-                  schedule(chapter.duration - 740, advance);
-                });
-              });
-            } else if (chapter.result) {
-              const selector = chapter.result;
-              schedule(900, () => {
-                const result = document.querySelector(selector);
-                if (result) {
-                  focus = result;
-                  scrollTo(result, "center");
-                  trackViewport();
-                }
-                schedule(chapter.duration - 900, advance);
-              });
-            } else {
-              schedule(chapter.duration, advance);
-            }
-          });
+        await image.decode();
+        await pointAt(image, image);
+      },
+      async band() {
+        await selectOption("#archive-mode", "1");
+      },
+      async source() {
+        await press(`${archive} .source-marker`, `${archive} .archive-image`);
+        const pin = await find(`${archive} .archive-pin`);
+        focus = pin;
+        pin.scrollIntoView({
+          block: "center",
+          behavior: reducedMotion.matches ? "instant" : "smooth",
         });
-      }
+        trackViewport();
+      },
+      async playback() {
+        const speed = await find<HTMLInputElement>(
+          `${archive} .playback-speed input`,
+        );
+        await pointAt(speed);
+        const portion =
+          (4 - Number(speed.min)) / (Number(speed.max) - Number(speed.min));
+        moveTo(speed, portion);
+        setRange(speed, 4);
+        await press(playback, archive);
+        await wait(1200);
+        await press(playback, archive);
+      },
+      async compare() {
+        await press('[data-demo-control="swipe"]', archive);
+        const divider = await find<HTMLInputElement>("#archive-divider");
+        await pointAt(divider, divider.closest(".archive-image") ?? divider);
+        moveTo(divider, 0.72);
+        if (reducedMotion.matches) {
+          setRange(divider, 72);
+          return;
+        }
+        for (const value of [54, 58, 62, 66, 70, 72]) {
+          setRange(divider, value);
+          await wait(70);
+        }
+      },
+      async report() {
+        await press(
+          `${archive} .archive-detections summary`,
+          `${archive} .archive-detections`,
+        );
+        const exportLink = await find(
+          `${archive} .archive-source-actions a[download]`,
+        );
+        await pointAt(
+          exportLink,
+          exportLink.closest(".archive-detections") ?? exportLink,
+        );
+      },
+    };
 
-      demonstrate();
+    async function run() {
+      for (const step of steps) {
+        step.setAttribute("aria-current", "step");
+        status.textContent = step.querySelector("span")?.textContent ?? "";
+        const result = step.querySelector<HTMLElement>("[data-step-result]")!;
+        try {
+          await actions[step.dataset.demoStep!]();
+          await wait(1900);
+          step.setAttribute("data-complete", "");
+        } catch {
+          step.setAttribute("data-skipped", "");
+          result.textContent = "Unavailable";
+        }
+        result.hidden = false;
+        step.removeAttribute("aria-current");
+      }
+      status.textContent = steps.some((step) =>
+        step.hasAttribute("data-skipped"),
+      )
+        ? "Tour ended with unavailable steps"
+        : "Tour complete";
+      finished = true;
+      pointer.hidden = true;
+      refreshOverlays();
     }
 
     const ready = new MutationObserver(start);
     function start() {
-      if (!document.querySelector(explorer) || !document.querySelector(review))
-        return;
+      if (!document.querySelector(explorer)) return;
       ready.disconnect();
-      showChapter();
+      void run();
     }
     ready.observe(document.body, {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ["data-demo-explorer", "data-demo-review"],
+      attributeFilter: ["data-demo-explorer"],
     });
     window.addEventListener("scroll", trackViewport, {
       passive: true,
@@ -468,11 +424,9 @@ const chapters = [
     :global(
       :is(
         .explorer-controls,
-        .viewer,
-        .pixel-spectrum,
-        .difference-preview,
-        .astrometry-review,
-        .astrometry-results
+        .archive-viewer,
+        .archive-pin,
+        .archive-detections
       )
     ) {
     scroll-margin-top: 1rem;
