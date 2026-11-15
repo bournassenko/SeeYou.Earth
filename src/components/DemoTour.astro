@@ -30,7 +30,11 @@ const chapters = [
   </span>
 </section>
 
-<div class="demo-ripple" aria-hidden="true"></div>
+<div class="demo-ripple" aria-hidden="true">
+  <span></span>
+  <span></span>
+  <span></span>
+</div>
 <div class="demo-spotlight" aria-hidden="true" hidden></div>
 <div class="demo-pointer" aria-hidden="true" hidden>
   <span>
@@ -55,6 +59,7 @@ const chapters = [
     const spotlight = document.querySelector<HTMLElement>(".demo-spotlight")!;
     const pointer = document.querySelector<HTMLElement>(".demo-pointer")!;
     const ripple = document.querySelector<HTMLElement>(".demo-ripple")!;
+    const waves = [...ripple.querySelectorAll("span")];
     document.body.append(spotlight, pointer, ripple);
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     const explorer = '[data-demo-explorer="ready"]';
@@ -137,13 +142,16 @@ const chapters = [
       );
       if (!pointer.hidden && !reducedMotion.matches) {
         ripple.style.transform = pointer.style.transform;
-        ripple.animate(
-          [
-            { opacity: 0.8, scale: 0.35 },
-            { opacity: 0, scale: 1.55 },
-          ],
-          { duration: 430, easing: "ease-out" },
-        );
+        for (const [index, wave] of waves.entries()) {
+          for (const animation of wave.getAnimations()) animation.cancel();
+          wave.animate(
+            [
+              { opacity: 0.95, scale: 0.25 },
+              { opacity: 0, scale: 3.5 },
+            ],
+            { delay: index * 100, duration: 620, easing: "ease-out" },
+          );
+        }
         pointer
           .querySelector("span")
           ?.animate(
@@ -359,15 +367,21 @@ const chapters = [
   .demo-ripple {
     position: fixed;
     z-index: 6;
-    top: -0.6rem;
-    left: -0.6rem;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+  }
+
+  .demo-ripple span {
+    position: absolute;
+    inset: -0.6rem auto auto -0.6rem;
+    box-sizing: border-box;
     width: 1.2rem;
     height: 1.2rem;
     border: 2px solid white;
     border-radius: 50%;
-    box-shadow: 0 0 0 1px black;
+    box-shadow: 0 0 0 1px oklch(0 0 0 / 70%);
     opacity: 0;
-    pointer-events: none;
   }
 
   @media (max-width: 48rem) {
@@ -412,6 +426,10 @@ const chapters = [
     width: 100%;
     height: 100%;
     transform-origin: top left;
+  }
+
+  .demo-pointer svg {
+    translate: -9.375% -6.25%;
   }
 
   @media (prefers-reduced-motion: reduce) {

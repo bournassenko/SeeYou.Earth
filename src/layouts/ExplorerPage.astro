@@ -2,6 +2,7 @@
 import Activity from "@lucide/astro/icons/activity";
 import Binoculars from "@lucide/astro/icons/binoculars";
 import CirclePlay from "@lucide/astro/icons/circle-play";
+import UserRound from "@lucide/astro/icons/user-round";
 import AstrometryReview from "../components/AstrometryReview";
 import DemoTour from "../components/DemoTour.astro";
 import "@fontsource-variable/inter";
@@ -10,7 +11,7 @@ import ProjectIntro from "../components/ProjectIntro";
 import SkyExplorer from "../components/SkyExplorer";
 
 interface Props {
-  page?: "explore" | "review" | "demo";
+  page?: "explore" | "review" | "demo" | "author";
 }
 
 const { page = "explore" } = Astro.props;
@@ -19,6 +20,7 @@ const navigation = [
   { id: "explore", label: "Explore", href: "/", Icon: Binoculars },
   { id: "review", label: "Review", href: "/review/", Icon: Activity },
   { id: "demo", label: "Demo", href: "/demo/", Icon: CirclePlay },
+  { id: "author", label: "Author", href: "/author/", Icon: UserRound },
 ] as const;
 const current = navigation.find((entry) => entry.id === page);
 ---
@@ -65,6 +67,7 @@ const current = navigation.find((entry) => entry.id === page);
           <SkyExplorer client:load demo={demo} />
         )}
         {page === "review" && <AstrometryReview client:load />}
+        <slot />
       </main>
     </div>
   </body>

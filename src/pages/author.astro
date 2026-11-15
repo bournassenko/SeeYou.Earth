@@ -1,0 +1,50 @@
+---
+import ArrowUpRight from "@lucide/astro/icons/arrow-up-right";
+import ExplorerPage from "../layouts/ExplorerPage.astro";
+---
+
+<ExplorerPage page="author">
+  <section class="author-card" aria-labelledby="author-title">
+    <h2 id="author-title">Made by Grégory Bournassenko</h2>
+    <a href="https://www.linkedin.com/in/bournassenko/">
+      LinkedIn <ArrowUpRight aria-hidden="true" />
+    </a>
+  </section>
+</ExplorerPage>
+
+<style>
+  .author-card {
+    display: grid;
+    justify-items: start;
+    gap: 1rem;
+    width: fit-content;
+    padding: var(--luma-panel-padding);
+    border-radius: var(--luma-radius-surface);
+    background: var(--card);
+    color: var(--card-foreground);
+    box-shadow: var(--luma-elevation);
+  }
+
+  a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.6rem 0.85rem;
+    border-radius: var(--luma-radius-surface);
+    background: var(--secondary);
+    color: var(--secondary-foreground);
+    font-size: 0.875rem;
+    font-weight: 550;
+    text-decoration: none;
+  }
+
+  a:hover {
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
+
+  a svg {
+    width: 1rem;
+    height: 1rem;
+  }
+</style>
