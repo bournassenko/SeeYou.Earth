@@ -92,12 +92,12 @@ Run `python scripts/match_gaia.py` after source detection. It queries the ESA Ga
 
 This example uses two ZTF r-band science exposures from the same field, CCD and
 quadrant, and their associated quality maps. It is a separate dataset from
-the SPHEREx timeline. Download the four FITS files from IRSA and generate the
+the SPHEREx timeline. Download the science and mask FITS files from IRSA and generate the
 preview with the same Python dependencies as source detection.
 
 ```sh
 mkdir -p data/raw/ztf
-for exposure in 20180408381620 20180411467847; do
+for exposure in 20180408381620 20180411423368 20180411467847; do
   year=$(printf '%s' "$exposure" | cut -c1-4)
   month_day=$(printf '%s' "$exposure" | cut -c5-8)
   fraction=$(printf '%s' "$exposure" | cut -c9-14)
@@ -121,3 +121,20 @@ within each exposure. It does not account for zeropoint or PSF-model uncertainty
 The PNG clips residuals at symmetric 99th-percentile limits and leaves invalid
 pixels transparent. The residual can include calibration and PSF mismatch and
 is not a detection significance map.
+
+## Experimental motion screening
+
+Run `python scripts/track_ztf.py` after fetching the ZTF cutouts. The third
+exposure adds an independent epoch. The script detects point-like peaks in
+native pixels, maps their centroids to a shared tangent plane, and evaluates
+each three-epoch association against stationary and constant-velocity fits.
+The approximate uncertainty combines a seeing/SNR centroid estimate and the
+header astrometry RMS. Candidate hypotheses must improve χ² by at least 25
+and have a reduced χ² of at most 3. The list is ordered by the χ² improvement,
+which is a screening statistic rather than a probability. Coincidences and
+unmodeled astrometric errors can produce false associations.
+
+The bundled ZTF cutouts do not yield candidate tracks at the configured
+threshold. The synthetic trajectory test verifies the fitting logic with a
+known velocity and rejects stationary, inconsistent and missing observations.
+Positive recovery on a real moving object remains unverified.

@@ -1,5 +1,15 @@
 ---
 import comparison from "../ztfDifference.json";
+import tracksJson from "../ztfTracks.json";
+
+const tracks: {
+  candidates: {
+    ra: number;
+    dec: number;
+    speedArcsecPerDay: number;
+    deltaChiSquared: number;
+  }[];
+} = tracksJson;
 ---
 
 <section class="difference-preview" aria-labelledby="difference-title">
@@ -17,6 +27,22 @@ import comparison from "../ztfDifference.json";
     </figcaption>
   </figure>
   <p>{comparison.validPixels} pixels in common · Experimental</p>
+  <details>
+    <summary>Motion candidates ({tracks.candidates.length})</summary>
+    {tracks.candidates.length === 0 ? (
+      <p>No trajectory passed screening across the three ZTF exposures.</p>
+    ) : (
+      <ol>
+        {tracks.candidates.map((candidate) => (
+          <li>
+            RA {candidate.ra.toFixed(5)}° · Dec {candidate.dec.toFixed(5)}° ·
+            {candidate.speedArcsecPerDay.toFixed(2)}″/day · Δχ²{" "}
+            {candidate.deltaChiSquared.toFixed(1)}
+          </li>
+        ))}
+      </ol>
+    )}
+  </details>
 </section>
 
 <style>
