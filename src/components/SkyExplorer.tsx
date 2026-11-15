@@ -14,6 +14,12 @@ import observations from "../observations.json";
 
 type Pixel = { x: number; y: number };
 type CoordinateGrid = { coordinates: [number, number][][] };
+type ArchiveObservation = {
+  id: string;
+  detector: string;
+  date: string;
+  source: string;
+};
 
 const coordinateFields = [
   {
@@ -45,6 +51,20 @@ type FieldErrors = Partial<Record<CoordinateId, string>>;
 export default function SkyExplorer() {
   const [errors, setErrors] = createSignal<FieldErrors>({});
   const [selection, setSelection] = createSignal<string[]>();
+  const [archive] = createResource(selection, async (values) => {
+    if (window.location.protocol === "tauri:")
+      return { offline: true } as const;
+
+    try {
+      const [ra, dec, fov] = values;
+      const query = new URLSearchParams({ ra, dec, fov });
+      const response = await fetch(`/api/observations?${query}`);
+      if (!response.ok) return { unavailable: true } as const;
+      return (await response.json()) as { observations: ArchiveObservation[] };
+    } catch {
+      return { unavailable: true } as const;
+    }
+  });
   const [ready, setReady] = createSignal(false);
   const [index, setIndex] = createSignal(0);
   const [playing, setPlaying] = createSignal(false);
@@ -329,6 +349,46 @@ export default function SkyExplorer() {
             </div>
           </Show>
         </details>
+        <Show when={selection()}>
+          <section
+            class="archive-results"
+            aria-label="IRSA search results"
+            aria-busy={archive.loading}
+          >
+            <h3>SPHEREx archive</h3>
+            <Show when={!archive.loading} fallback={<p>Searching IRSA…</p>}>
+              <Show when={archive()} keyed>
+                {(result) =>
+                  "observations" in result ? (
+                    <Show
+                      when={result.observations.length > 0}
+                      fallback={<p>No observations found.</p>}
+                    >
+                      <ul>
+                        <For each={result.observations}>
+                          {(entry) => (
+                            <li>
+                              <a href={entry.source}>
+                                {entry.id} · {entry.detector}
+                              </a>{" "}
+                              · {entry.date.slice(0, 10)}
+                            </li>
+                          )}
+                        </For>
+                      </ul>
+                    </Show>
+                  ) : (
+                    <p>
+                      {"offline" in result
+                        ? "Archive search is available in the web app."
+                        : "IRSA search unavailable."}
+                    </p>
+                  )
+                }
+              </Show>
+            </Show>
+          </section>
+        </Show>
         <div role="status" class="viewer-status">
           <Show when={selection()}>
             {(values) => (

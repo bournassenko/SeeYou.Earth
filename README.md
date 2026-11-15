@@ -88,6 +88,21 @@ The detector works in native FITS pixels. It subtracts the modeled zodiacal fore
 
 Run `python scripts/match_gaia.py` after source detection. It queries the ESA Gaia Archive for an ICRS cone around M101 and lists every nearby entry within a 3 arcsecond screening radius plus a conservative Gaia positional-error margin. Where available, proper motions shift the Gaia coordinates to the SPHEREx exposure epoch. Without a measured proper motion the interface labels the entry as a reference-epoch position. This positional search ignores parallax and radial motion, does not resolve blends, and covers only the queried Gaia cone. A nearby entry is a possible association, and an empty result provides no evidence of a discovery.
 
+## Linux desktop build
+
+Install the [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/)
+for Debian or Ubuntu, including Rust and WebKitGTK. Then run:
+
+```sh
+npm ci
+npm run desktop:build
+```
+
+The Debian package is written to `src-tauri/target/release/bundle/deb/`.
+The desktop app packages the same static observation viewer and bundled data
+as the web build. If WebKitGTK opens a blank window in a virtual display,
+launch with `WEBKIT_DISABLE_DMABUF_RENDERER=1` to use the fallback renderer.
+
 ## Experimental ZTF difference
 
 This example uses two ZTF r-band science exposures from the same field, CCD and
@@ -138,3 +153,13 @@ The bundled ZTF cutouts do not yield candidate tracks at the configured
 threshold. The synthetic trajectory test verifies the fitting logic with a
 known velocity and rejects stationary, inconsistent and missing observations.
 Positive recovery on a real moving object remains unverified.
+
+## Live observation search
+
+Run `npm run api` and `npm run dev` in separate terminals. Astro forwards
+`/api` requests to the local Node service on port 4323. Production can serve
+`dist/` with any HTTPS web server that proxies `/api/` to the loopback service.
+The search returns up to five SPHEREx DR1 science products whose footprints
+intersect the requested ICRS circle. Field of view is the circle diameter.
+Results link to the original FITS files. The desktop viewer uses bundled
+observations when running locally.

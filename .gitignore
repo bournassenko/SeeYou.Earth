@@ -8,3 +8,6 @@ dist/
 data/raw/
 
 __pycache__/
+
+src-tauri/target/
+src-tauri/gen/
