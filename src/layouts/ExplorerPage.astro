@@ -73,6 +73,7 @@ const { demo = false } = Astro.props;
   }
 
   main {
+    overflow-anchor: none;
     box-sizing: border-box;
     width: min(100%, 76rem);
     margin: 0 auto;
@@ -417,6 +418,10 @@ const { demo = false } = Astro.props;
     border-width: 2px;
     background: var(--primary);
     color: var(--primary-foreground);
+  }
+
+  #pixel-position {
+    min-block-size: 1.6em;
   }
 
   .pixel-spectrum {

@@ -41,26 +41,22 @@ export default function PixelSpectrum(props: {
   return (
     <section class="pixel-spectrum" aria-label="Pinned pixel spectrum">
       <h4>Pixel spectrum</h4>
-      <Show
-        when={plot()}
-        keyed
-        fallback={<p>No usable samples at this position.</p>}
-      >
+      <Show when={plot()} fallback={<p>No usable samples at this position.</p>}>
         {(chart) => (
           <div class="spectrum-layout">
             <div class="spectrum-figure">
               <span>Brightness (MJy/sr)</span>
               <div class="spectrum-chart">
                 <div class="spectrum-ticks">
-                  <span>{chart.high.toFixed(3)}</span>
-                  <span>{chart.low.toFixed(3)}</span>
+                  <span>{chart().high.toFixed(3)}</span>
+                  <span>{chart().low.toFixed(3)}</span>
                 </div>
                 <div
                   class="spectrum-plot"
                   role="group"
                   aria-label="Brightness by wavelength"
                 >
-                  <For each={chart.points}>
+                  <For each={chart().points}>
                     {(point) => (
                       <div
                         class="spectrum-sample"
@@ -83,9 +79,9 @@ export default function PixelSpectrum(props: {
                 </div>
               </div>
               <div class="spectrum-axis">
-                <span>{chart.waveLow.toFixed(3)}</span>
+                <span>{chart().waveLow.toFixed(3)}</span>
                 <span>Wavelength (µm)</span>
-                <span>{chart.waveHigh.toFixed(3)}</span>
+                <span>{chart().waveHigh.toFixed(3)}</span>
               </div>
             </div>
             <ul class="spectrum-values">

@@ -103,7 +103,7 @@ export default function SkyExplorer(props: { demo?: boolean }) {
   const [pixel, setPixel] = createSignal<Pixel>();
   const [pinnedPixel, setPinnedPixel] = createSignal<Pixel>();
   const [pixelSamples] = createResource(
-    () => Boolean(pinnedPixel()),
+    ready,
     async (): Promise<Record<
       string,
       ([number, number, number] | null)[][]
@@ -267,9 +267,10 @@ export default function SkyExplorer(props: { demo?: boolean }) {
     const y = Math.floor(
       ((event.clientY - bounds.top) / bounds.height) * height,
     );
-    setPixel(
-      x >= 0 && y >= 0 && x < width && y < height ? { x, y } : undefined,
-    );
+    const point =
+      x >= 0 && y >= 0 && x < width && y < height ? { x, y } : undefined;
+    setPixel(point);
+    return point;
   }
 
   function readKeyboard(event: KeyboardEvent) {
@@ -502,8 +503,14 @@ export default function SkyExplorer(props: { demo?: boolean }) {
                 onPointerLeave={() => setPixel(undefined)}
                 onKeyDown={readKeyboard}
                 onClick={(event) => {
-                  readPointer(event);
-                  togglePin();
+                  const point = readPointer(event);
+                  const pinned = pinnedPixel();
+                  if (
+                    point &&
+                    (point.x !== pinned?.x || point.y !== pinned?.y)
+                  ) {
+                    setPinnedPixel(point);
+                  }
                 }}
               />
               <Show when={comparing()}>
@@ -645,37 +652,31 @@ export default function SkyExplorer(props: { demo?: boolean }) {
                 ? "Loading coordinates…"
                 : grid() === null
                   ? "Coordinates unavailable."
-                  : "Hover or use arrow keys for ICRS coordinates. Click or press Enter to pin."
+                  : "Click or press Enter to pin a position."
             }
           >
-            {(position) =>
-              `RA ${position()[0].toFixed(6)}° · Dec ${position()[1].toFixed(6)}°`
-            }
-          </Show>
-        </p>
-        <Show when={pinnedPixel()}>
-          <Show
-            when={spectrum()}
-            fallback={
-              <p role="status">
-                {pixelSamples.loading
-                  ? "Loading pixel spectrum…"
-                  : "Pixel spectrum unavailable."}
-              </p>
-            }
-          >
-            {(samples) => (
-              <PixelSpectrum
-                samples={samples()}
-                activeIndex={index()}
-                selectObservation={(next) => {
-                  setPlaying(false);
-                  setComparing(false);
-                  showObservation(next);
-                }}
-              />
+            {(position) => (
+              <span>
+                RA {position()[0].toFixed(6)}° · Dec {position()[1].toFixed(6)}°
+              </span>
             )}
           </Show>
+        </p>
+        <Show when={spectrum()}>
+          {(samples) => (
+            <PixelSpectrum
+              samples={samples()}
+              activeIndex={index()}
+              selectObservation={(next) => {
+                setPlaying(false);
+                setComparing(false);
+                showObservation(next);
+              }}
+            />
+          )}
+        </Show>
+        <Show when={pinnedPixel() && pixelSamples() === null}>
+          <p role="status">Pixel spectrum unavailable.</p>
         </Show>
         <Show when={inspected()} keyed>
           {(source) => (

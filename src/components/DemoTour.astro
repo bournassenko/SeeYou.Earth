@@ -130,9 +130,6 @@ import RotateCcw from "@lucide/astro/icons/rotate-ccw";
     let remaining = 0;
     let deadline = 0;
     let focus: Element | null = null;
-    let cursorTarget: Element | null = null;
-    let cursorOffset = 0.5;
-    let cursorOffsetY = 0.5;
     let pendingFrame = 0;
 
     function schedule(delay: number, action: () => void) {
@@ -173,16 +170,7 @@ import RotateCcw from "@lucide/astro/icons/rotate-ccw";
         spotlight.hidden = true;
       }
 
-      if (finished) {
-        pointer.hidden = true;
-      } else if (cursorTarget) {
-        const bounds = cursorTarget.getBoundingClientRect();
-        const x = bounds.left + bounds.width * cursorOffset;
-        const y = bounds.top + bounds.height * cursorOffsetY;
-        pointer.hidden = x < 0 || y < 0 || x >= innerWidth || y >= innerHeight;
-        if (!pointer.hidden)
-          pointer.style.transform = `translate(${x}px, ${y}px)`;
-      }
+      if (finished) pointer.hidden = true;
     }
 
     function trackViewport() {
@@ -190,11 +178,14 @@ import RotateCcw from "@lucide/astro/icons/rotate-ccw";
         pendingFrame = window.requestAnimationFrame(refreshOverlays);
     }
 
-    function moveTo(selector: string, offset = 0.5, vertical = 0.5) {
-      cursorTarget = document.querySelector(selector);
-      cursorOffset = offset;
-      cursorOffsetY = vertical;
-      refreshOverlays();
+    function moveTo(selector: string, offset = 0.5) {
+      const bounds = document.querySelector(selector)?.getBoundingClientRect();
+      if (!bounds) return;
+      const x = bounds.left + bounds.width * offset;
+      const y = bounds.top + bounds.height / 2;
+      pointer.hidden = x < 0 || y < 0 || x >= innerWidth || y >= innerHeight;
+      if (!pointer.hidden)
+        pointer.style.transform = `translate(${x}px, ${y}px)`;
     }
 
     function labelPlayback(label: "Pause" | "Resume" | "Replay") {
@@ -204,55 +195,6 @@ import RotateCcw from "@lucide/astro/icons/rotate-ccw";
           .querySelector(`[data-icon-${name}]`)
           ?.toggleAttribute("hidden", name !== label.toLowerCase());
       }
-    }
-
-    function guidePointer(duration: number, advance: () => void) {
-      if (reducedMotion.matches || duration < 850) {
-        schedule(duration, advance);
-        return;
-      }
-
-      const offsets = [
-        [0.34, 0.45],
-        [0.63, 0.51],
-        [0.5, 0.61],
-        [0.71, 0.42],
-      ];
-      let step = 0;
-      let left = duration;
-
-      function drift() {
-        if (left < 850) {
-          schedule(left, advance);
-          return;
-        }
-        if (focus) {
-          cursorTarget = focus;
-          [cursorOffset, cursorOffsetY] = offsets[step % offsets.length];
-          const bounds = focus.getBoundingClientRect();
-          const visibleTop = Math.max(
-            bounds.top,
-            tour!.getBoundingClientRect().bottom,
-          );
-          const visibleBottom = Math.min(innerHeight, bounds.bottom);
-          if (visibleBottom > visibleTop && bounds.height > 0) {
-            cursorOffsetY =
-              (visibleTop +
-                (visibleBottom - visibleTop) * cursorOffsetY -
-                bounds.top) /
-              bounds.height;
-          }
-          refreshOverlays();
-        }
-        step += 1;
-        left -= 700;
-        schedule(700, drift);
-      }
-
-      schedule(450, () => {
-        left -= 450;
-        drift();
-      });
     }
 
     function clickControl(control: HTMLElement | null) {
@@ -310,7 +252,6 @@ import RotateCcw from "@lucide/astro/icons/rotate-ccw";
         if (details) details.open = false;
       }
       focus = document.querySelector(chapter.focus);
-      cursorTarget = null;
       const control = document.querySelector<HTMLElement>(chapter.control);
       scrollTo(control ?? focus, "center");
       trackViewport();
@@ -341,7 +282,7 @@ import RotateCcw from "@lucide/astro/icons/rotate-ccw";
                 schedule(650, () => {
                   moveTo("#swipe-divider", 0.7);
                   setSwipe(70);
-                  guidePointer(chapter.duration - 2050, advance);
+                  schedule(chapter.duration - 2050, advance);
                 });
               });
             });
@@ -351,17 +292,12 @@ import RotateCcw from "@lucide/astro/icons/rotate-ccw";
               if (result) {
                 focus = result;
                 scrollTo(result, "center");
-                moveTo(
-                  chapter.action === "spectrum"
-                    ? ".spectrum-sample button"
-                    : ".astrometry-metrics > div:last-child",
-                );
                 trackViewport();
               }
-              guidePointer(chapter.duration - 900, advance);
+              schedule(chapter.duration - 900, advance);
             });
           } else {
-            guidePointer(chapter.duration, advance);
+            schedule(chapter.duration, advance);
           }
         });
       });
@@ -403,6 +339,7 @@ import RotateCcw from "@lucide/astro/icons/rotate-ccw";
       showChapter();
     }
     ready.observe(document.body, {
+      childList: true,
       subtree: true,
       attributes: true,
       attributeFilter: ["data-demo-explorer", "data-demo-review"],
