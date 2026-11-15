@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { createServer } from "node:http";
+import { createInterface } from "node:readline";
 
 const endpoint = "https://irsa.ipac.caltech.edu/SIA";
 const fitsPath = /^\/ibe\/data\/spherex\/(dr1|qr3)\/level2\/[\w/-]+\.fits$/;
@@ -188,7 +189,7 @@ async function searchCollection(
   return archiveRows(await upstream.json(), limit, collection);
 }
 
-function renderSeries(input, signal) {
+function renderSeries(input, signal, onProgress) {
   return new Promise((resolve, reject) => {
     const worker = execFile(
       process.env.SPHEREX_PYTHON ?? "python3",
@@ -203,8 +204,19 @@ function renderSeries(input, signal) {
         }
       },
     );
+    if (onProgress) {
+      const lines = createInterface({ input: worker.stderr });
+      lines.on("line", (line) => {
+        if (!line.startsWith("PROGRESS ")) return;
+        const [completed, usable] = line.slice(9).split(" ").map(Number);
+        if (Number.isInteger(completed) && Number.isInteger(usable))
+          onProgress(completed, usable);
+      });
+    }
     worker.stdin.on("error", reject);
-    worker.stdin.end(JSON.stringify(input));
+    worker.stdin.end(
+      JSON.stringify({ ...input, reportProgress: Boolean(onProgress) }),
+    );
   });
 }
 
@@ -264,6 +276,22 @@ const server = createServer(async (request, response) => {
     return send(503, { error: "The search is busy. Try again shortly." });
   }
 
+  const streaming = series && url.searchParams.get("progress") === "1";
+  function writeEvent(event) {
+    if (streaming && !response.destroyed && !response.writableEnded) {
+      response.write(JSON.stringify(event) + "\n");
+    }
+  }
+  if (streaming) {
+    response.writeHead(200, {
+      "Content-Type": "application/x-ndjson; charset=utf-8",
+      "Cache-Control": "no-store, no-transform",
+      "X-Content-Type-Options": "nosniff",
+      "X-Accel-Buffering": "no",
+    });
+    writeEvent({ type: "search" });
+  }
+
   const client = new AbortController();
   const onClose = () => client.abort();
   response.once("close", onClose);
@@ -320,8 +348,21 @@ const server = createServer(async (request, response) => {
       });
     }
     const entries = sampleObservations(observations);
+    const reportCutouts = (completed, usable) =>
+      writeEvent({
+        type: "cutouts",
+        completed,
+        usable,
+        total: entries.length,
+        matched: observations.length,
+      });
+    reportCutouts(0, 0);
     const result = entries.length
-      ? await renderSeries({ ra, dec, fov, entries }, client.signal)
+      ? await renderSeries(
+          { ra, dec, fov, entries },
+          client.signal,
+          streaming ? reportCutouts : undefined,
+        )
       : { series: [], all: null, failed: 0, sampled: 0 };
     const matchCounts = Object.fromEntries(
       ["DR1", "QR3"].map((release) => [
@@ -347,11 +388,21 @@ const server = createServer(async (request, response) => {
       }
       seriesCache.set(key, { data, expires: Date.now() + cacheLifetime });
     }
-    send(200, data);
+    if (streaming) {
+      writeEvent({ type: "result", data });
+      response.end();
+    } else {
+      send(200, data);
+    }
   } catch (error) {
     if (client.signal.aborted || response.destroyed) return;
     console.error("IRSA search failed:", error.message);
-    send(502, { error: "The IRSA archive is currently unavailable." });
+    if (streaming) {
+      writeEvent({ type: "error" });
+      response.end();
+    } else {
+      send(502, { error: "The IRSA archive is currently unavailable." });
+    }
   } finally {
     response.off("close", onClose);
     activeSearches -= 1;

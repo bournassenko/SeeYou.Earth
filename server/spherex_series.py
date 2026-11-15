@@ -1,5 +1,5 @@
 import base64
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import redirect_stdout
 from datetime import datetime
 from hashlib import sha256
@@ -168,9 +168,17 @@ def main():
             print(str(error), file=sys.stderr)
             return None, True
 
+    results = []
+    usable = 0
     with ThreadPoolExecutor(max_workers=6) as executor:
-        results = list(executor.map(download, entries))
-    frames = sorted((frame for frame, _ in results if frame), key=lambda frame: frame[0]["date"])
+        futures = [executor.submit(download, entry) for entry in entries]
+        for completed, future in enumerate(as_completed(futures), start=1):
+            result = future.result()
+            results.append(result)
+            usable += result[0] is not None
+            if request.get("reportProgress"):
+                print(f"PROGRESS {completed} {usable}", file=sys.stderr, flush=True)
+    frames = sorted((frame for frame, _ in results if frame), key=lambda frame: (frame[0]["date"], frame[0]["source"]))
     groups = band_groups(frames)
     selected = {}
     for group in groups:

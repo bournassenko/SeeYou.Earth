@@ -12,6 +12,7 @@ import PinOff from "lucide-solid/icons/pin-off";
 import Play from "lucide-solid/icons/play";
 import Plus from "lucide-solid/icons/plus";
 import Search from "lucide-solid/icons/search";
+import LoaderCircle from "lucide-solid/icons/loader-circle";
 import Split from "lucide-solid/icons/split";
 import {
   createEffect,
@@ -23,6 +24,7 @@ import {
   Show,
 } from "solid-js";
 
+import ArchiveLoading, { type ArchiveProgress } from "./ArchiveLoading";
 import ArchiveTimeline, { type ArchiveSeries } from "./ArchiveTimeline";
 import ComparisonDivider from "./ComparisonDivider";
 import PlaybackSpeed from "./PlaybackSpeed";
@@ -133,6 +135,10 @@ export default function SkyExplorer(props: { demo?: boolean }) {
   const [linkStatus, setLinkStatus] = createSignal("");
   const [dateError, setDateError] = createSignal("");
   const [heading, setHeading] = createSignal("Sky field");
+  const [searchStartedAt, setSearchStartedAt] = createSignal(0);
+  const [progress, setProgress] = createSignal<ArchiveProgress>({
+    type: "search",
+  });
   const pending = () => Boolean(selection());
   const result = () => {
     const response = archive();
@@ -147,12 +153,15 @@ export default function SkyExplorer(props: { demo?: boolean }) {
     archiveRequest?.abort();
     const request = new AbortController();
     archiveRequest = request;
+    setSearchStartedAt(performance.now());
     try {
       const { ra, dec, fov, target, from, to } = values;
       const query = new URLSearchParams({ ra, dec, fov });
       if (from) query.set("from", from);
       if (to) query.set("to", to);
       query.set("mode", "series");
+      query.set("progress", "1");
+      setProgress({ type: target ? "example" : "search" });
       const endpoint = target
         ? `/observations/examples/${target}.json`
         : `/api/observations?${query}`;
@@ -160,6 +169,37 @@ export default function SkyExplorer(props: { demo?: boolean }) {
       if (response.status === 429 || response.status === 503)
         return { busy: true } as const;
       if (!response.ok) return { unavailable: true } as const;
+      if (
+        response.body &&
+        response.headers.get("content-type")?.includes("application/x-ndjson")
+      ) {
+        const reader = response.body
+          .pipeThrough(new TextDecoderStream())
+          .getReader();
+        let buffer = "";
+        try {
+          while (true) {
+            const chunk = await reader.read();
+            if (chunk.done) return { unavailable: true } as const;
+            buffer += chunk.value;
+            let end = buffer.indexOf("\n");
+            while (end !== -1) {
+              const event = JSON.parse(buffer.slice(0, end)) as
+                | ArchiveProgress
+                | { type: "result"; data: ArchiveSeries }
+                | { type: "error" };
+              buffer = buffer.slice(end + 1);
+              if (event.type === "result") return event.data;
+              if (event.type === "error") return { unavailable: true } as const;
+              if (archiveRequest === request) setProgress(event);
+              end = buffer.indexOf("\n");
+            }
+          }
+        } finally {
+          await reader.cancel().catch(() => {});
+        }
+      }
+      if (archiveRequest === request) setProgress({ type: "prepare" });
       return (await response.json()) as ArchiveSeries;
     } catch {
       return { unavailable: true } as const;
@@ -169,7 +209,7 @@ export default function SkyExplorer(props: { demo?: boolean }) {
   });
   const [ready, setReady] = createSignal(false);
   const [index, setIndex] = createSignal(0);
-  const [speed, setSpeed] = createSignal(3);
+  const [speed, setSpeed] = createSignal(1.5);
   const [playing, setPlaying] = createSignal(false);
   const [markers, setMarkers] = createSignal(true);
   const [selectedSource, setSelectedSource] = createSignal<number>();
@@ -489,6 +529,7 @@ export default function SkyExplorer(props: { demo?: boolean }) {
     event: SubmitEvent & { currentTarget: HTMLFormElement },
   ) {
     event.preventDefault();
+    if (archive.loading) return;
 
     const form = event.currentTarget;
     const formData = new FormData(form);
@@ -582,8 +623,14 @@ export default function SkyExplorer(props: { demo?: boolean }) {
               </div>
             )}
           </For>
-          <button type="submit" disabled={!ready()}>
-            <Search aria-hidden="true" /> Search archive
+          <button type="submit" disabled={!ready() || archive.loading}>
+            <Show
+              when={archive.loading}
+              fallback={<Search aria-hidden="true" />}
+            >
+              <LoaderCircle class="loading-spinner" aria-hidden="true" />
+            </Show>
+            {archive.loading ? "Loading archive…" : "Search archive"}
           </button>
           <details
             class="archive-date-filter"
@@ -663,10 +710,11 @@ export default function SkyExplorer(props: { demo?: boolean }) {
         <Show
           when={!archive.loading}
           fallback={
-            <section class="viewer archive-state" aria-busy="true">
-              <h2>{heading()}</h2>
-              <p role="status">Loading and aligning SPHEREx exposures…</p>
-            </section>
+            <ArchiveLoading
+              heading={heading()}
+              progress={progress()}
+              startedAt={searchStartedAt()}
+            />
           }
         >
           <Show

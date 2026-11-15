@@ -176,6 +176,11 @@ early and late visits when available. Use **Observation dates (UTC)** to
 request another interval, or refine a search when IRSA caps the result count. A nearby detector pointing is used as a search
 heuristic and is verified against each cutout's spectral WCS.
 
+The explorer requests progress with `progress=1` in live series searches.
+An uncached search emits newline-delimited JSON events for the archive search,
+completed FITS cutouts, and the final result. A cache hit can return the series
+as JSON. Requests without `progress=1` use the JSON response.
+
 The worker uses the FITS celestial WCS to align cutouts onto a north-up
 tangent-plane grid, samples nearest valid detector pixels, and uses a shared
 brightness stretch per playback sequence. Preview pixels are masked when
