@@ -2,6 +2,8 @@ import ChevronLeft from "lucide-solid/icons/chevron-left";
 import ChevronRight from "lucide-solid/icons/chevron-right";
 import Crosshair from "lucide-solid/icons/crosshair";
 import Download from "lucide-solid/icons/download";
+import Link from "lucide-solid/icons/link";
+import RotateCcw from "lucide-solid/icons/rotate-ccw";
 import MapPin from "lucide-solid/icons/map-pin";
 import Minus from "lucide-solid/icons/minus";
 import Pause from "lucide-solid/icons/pause";
@@ -22,6 +24,7 @@ import {
 } from "solid-js";
 
 import ArchiveTimeline, { type ArchiveSeries } from "./ArchiveTimeline";
+import ComparisonDivider from "./ComparisonDivider";
 import PlaybackSpeed from "./PlaybackSpeed";
 import SelectField from "./SelectField";
 import PixelSpectrum from "./PixelSpectrum";
@@ -110,11 +113,13 @@ const exampleFields = [
 
 type CoordinateId = (typeof coordinateFields)[number]["id"];
 type FieldErrors = Partial<Record<CoordinateId, string>>;
+type FieldSelection = [string, string, string, string?];
+type ExampleField = (typeof exampleFields)[number];
 
 export default function SkyExplorer(props: { demo?: boolean }) {
   const [errors, setErrors] = createSignal<FieldErrors>({});
-  const [selection, setSelection] =
-    createSignal<[string, string, string, string?]>();
+  const [selection, setSelection] = createSignal<FieldSelection>();
+  const [linkStatus, setLinkStatus] = createSignal("");
   const [heading, setHeading] = createSignal("Sky field");
   const live = !props.demo;
   const pending = () => live && Boolean(selection());
@@ -124,7 +129,7 @@ export default function SkyExplorer(props: { demo?: boolean }) {
   };
   let archiveRequest: AbortController | undefined;
   onCleanup(() => archiveRequest?.abort());
-  const [archive] = createResource(selection, async (values) => {
+  const [archive, { refetch }] = createResource(selection, async (values) => {
     if (window.location.protocol === "tauri:")
       return { offline: true } as const;
 
@@ -139,6 +144,8 @@ export default function SkyExplorer(props: { demo?: boolean }) {
         ? `/observations/examples/${example}.json`
         : `/api/observations?${query}`;
       const response = await fetch(endpoint, { signal: request.signal });
+      if (response.status === 429 || response.status === 503)
+        return { busy: true } as const;
       if (!response.ok) return { unavailable: true } as const;
       return (await response.json()) as
         ArchiveSeries | { observations: ArchiveObservation[] };
@@ -254,8 +261,10 @@ export default function SkyExplorer(props: { demo?: boolean }) {
   }
 
   function step(direction: number) {
+    const count = observations.length;
+    const next = (index() + direction + count) % count;
     showObservation(
-      (index() + direction + observations.length) % observations.length,
+      comparing() && next === 0 ? (next + direction + count) % count : next,
     );
   }
 
@@ -413,7 +422,68 @@ export default function SkyExplorer(props: { demo?: boolean }) {
       onCleanup(() => target.removeEventListener("seeyou-demo", runDemo));
     }
     setReady(true);
+    if (!live || !coordinateForm || window.location.protocol === "tauri:")
+      return;
+    const params = new URLSearchParams(window.location.search);
+    const example = exampleFields.find(
+      ({ key }) => key === params.get("target"),
+    );
+    if (example) {
+      loadExample(example);
+    } else if (coordinateFields.every(({ id }) => params.has(id))) {
+      for (const { id } of coordinateFields) {
+        const input = coordinateForm.elements.namedItem(id) as HTMLInputElement;
+        input.value = params.get(id) ?? "";
+      }
+      coordinateForm.requestSubmit();
+    }
   });
+
+  function fieldUrl(values?: FieldSelection) {
+    const url = new URL(window.location.href);
+    for (const key of ["target", "ra", "dec", "fov"])
+      url.searchParams.delete(key);
+    if (!values) return url;
+    const [ra, dec, fov, example] = values;
+    if (example) url.searchParams.set("target", example);
+    else
+      for (const [key, value] of Object.entries({ ra, dec, fov }))
+        url.searchParams.set(key, value);
+    return url;
+  }
+
+  function openField(values: FieldSelection, name: string) {
+    setPlaying(false);
+    setHeading(name);
+    setLinkStatus("");
+    setSelection(values);
+    if (live && window.location.protocol !== "tauri:") {
+      window.history.replaceState(window.history.state, "", fieldUrl(values));
+    }
+  }
+
+  function loadExample(example: ExampleField) {
+    if (!coordinateForm) return;
+    for (const { id } of coordinateFields) {
+      const input = coordinateForm.elements.namedItem(id) as HTMLInputElement;
+      input.value = example[id];
+    }
+    setErrors({});
+    openField(
+      [example.ra, example.dec, example.fov, example.key],
+      example.name,
+    );
+  }
+
+  async function copyFieldLink() {
+    const url = fieldUrl(selection()).href;
+    try {
+      await navigator.clipboard.writeText(url);
+      setLinkStatus("Field link copied.");
+    } catch {
+      setLinkStatus("Copy the field link from the address bar.");
+    }
+  }
 
   function submitCoordinates(
     event: SubmitEvent & { currentTarget: HTMLFormElement },
@@ -437,8 +507,6 @@ export default function SkyExplorer(props: { demo?: boolean }) {
 
     const firstInvalid = coordinateFields.find((field) => nextErrors[field.id]);
     if (firstInvalid) {
-      archiveRequest?.abort();
-      setSelection(undefined);
       form.querySelector<HTMLInputElement>(`#${firstInvalid.id}`)?.focus();
       return;
     }
@@ -452,17 +520,16 @@ export default function SkyExplorer(props: { demo?: boolean }) {
       return;
     }
 
-    setPlaying(false);
     const example = exampleFields.find(
       ({ ra, dec, fov }) =>
         ra === coordinates[0] &&
         dec === coordinates[1] &&
         fov === coordinates[2],
     );
-    setHeading(
+    openField(
+      coordinates,
       example?.name ?? `RA ${coordinates[0]}° · Dec ${coordinates[1]}°`,
     );
-    setSelection(coordinates);
   }
 
   return (
@@ -528,34 +595,34 @@ export default function SkyExplorer(props: { demo?: boolean }) {
                 const example = exampleFields.find(
                   (entry) => entry.key === key,
                 );
-                if (!example || !coordinateForm) return;
-                for (const id of ["ra", "dec", "fov"] as const) {
-                  const input = coordinateForm.elements.namedItem(
-                    id,
-                  ) as HTMLInputElement;
-                  input.value = example[id];
-                }
-                setErrors({});
-                setPlaying(false);
-                setHeading(example.name);
-                setSelection([
-                  example.ra,
-                  example.dec,
-                  example.fov,
-                  example.key,
-                ]);
+                if (example) loadExample(example);
               }}
             />
             <Show when={pending()}>
-              <button
-                type="button"
-                onClick={() => {
-                  archiveRequest?.abort();
-                  setSelection(undefined);
-                }}
-              >
-                Back to M101
-              </button>
+              <div class="field-actions">
+                <button type="button" onClick={copyFieldLink}>
+                  <Link aria-hidden="true" /> Copy field link
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    archiveRequest?.abort();
+                    setSelection(undefined);
+                    setLinkStatus("");
+                    window.history.replaceState(
+                      window.history.state,
+                      "",
+                      fieldUrl(),
+                    );
+                    coordinateForm?.reset();
+                  }}
+                >
+                  Back to M101
+                </button>
+              </div>
+              <Show when={linkStatus()}>
+                <small role="status">{linkStatus()}</small>
+              </Show>
             </Show>
           </div>
         </Show>
@@ -625,8 +692,19 @@ export default function SkyExplorer(props: { demo?: boolean }) {
                 <p role="status">
                   {window.location.protocol === "tauri:"
                     ? "Archive search is available in the web app."
-                    : "SPHEREx images are temporarily unavailable. Try the search again."}
+                    : archive() && "busy" in archive()!
+                      ? "The archive service is busy. Retry in a moment."
+                      : "SPHEREx images are temporarily unavailable."}
                 </p>
+                <Show when={window.location.protocol !== "tauri:"}>
+                  <button
+                    class="archive-retry"
+                    type="button"
+                    onClick={() => refetch()}
+                  >
+                    <RotateCcw aria-hidden="true" /> Retry field
+                  </button>
+                </Show>
               </section>
             }
           >
@@ -700,10 +778,10 @@ export default function SkyExplorer(props: { demo?: boolean }) {
                         "clip-path": `inset(0 ${100 - divider()}% 0 0)`,
                       }}
                     />
-                    <span
-                      class="comparison-divider"
-                      aria-hidden="true"
-                      style={{ left: `${divider()}%` }}
+                    <ComparisonDivider
+                      id="swipe-divider"
+                      value={divider()}
+                      onChange={setDivider}
                     />
                   </Show>
                   <Show when={activePixel()} keyed>
@@ -789,17 +867,6 @@ export default function SkyExplorer(props: { demo?: boolean }) {
               </div>
               <Show when={comparing()}>
                 <div class="swipe-control">
-                  <label for="swipe-divider">Comparison divider</label>
-                  <input
-                    id="swipe-divider"
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={divider()}
-                    onInput={(event) =>
-                      setDivider(Number(event.currentTarget.value))
-                    }
-                  />
                   <div class="comparison-labels">
                     <span>
                       {reference.date.slice(0, 10)} ·{" "}
@@ -827,10 +894,12 @@ export default function SkyExplorer(props: { demo?: boolean }) {
               <SelectField
                 id="observation"
                 label="Observation (UTC)"
-                options={observations.map((entry, i) => ({
-                  value: String(i),
-                  label: entry.date.replace("T", " ").slice(0, 19),
-                }))}
+                options={observations
+                  .map((entry, i) => ({
+                    value: String(i),
+                    label: entry.date.replace("T", " ").slice(0, 19),
+                  }))
+                  .filter((option) => !comparing() || option.value !== "0")}
                 value={String(index())}
                 onChange={(value) => {
                   setPlaying(false);

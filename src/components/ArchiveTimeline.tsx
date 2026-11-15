@@ -8,6 +8,7 @@ import Play from "lucide-solid/icons/play";
 import Split from "lucide-solid/icons/split";
 import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 
+import ComparisonDivider from "./ComparisonDivider";
 import PlaybackSpeed from "./PlaybackSpeed";
 import SelectField from "./SelectField";
 
@@ -36,7 +37,11 @@ type ArchiveFrame = {
   image: string;
 };
 
-type Timeline = { comparable: boolean; frames: ArchiveFrame[] };
+type Timeline = {
+  comparable: boolean;
+  frames: ArchiveFrame[];
+  stretch?: [number, number];
+};
 
 export type ArchiveSeries = {
   ra: number;
@@ -112,6 +117,7 @@ export default function ArchiveTimeline(props: {
     const payload = {
       schemaVersion: 1,
       release: "SPHEREx DR1",
+      datasetDoi: "10.26131/IRSA678",
       coordinateFrame: "ICRS",
       coordinateUnit: "degree",
       field: {
@@ -120,14 +126,21 @@ export default function ArchiveTimeline(props: {
         widthDeg: props.result.fov,
       },
       detectionMethod: props.result.detectionMethod ?? null,
+      preview: {
+        projection: "TAN",
+        orientation: "north-up, east-left",
+        sharedStretchMJySr: timeline()?.stretch ?? null,
+      },
       observation: metadata,
     };
     return `data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(payload, null, 2))}`;
   }
 
   function step(direction: number) {
+    const count = frames().length;
+    const next = (index() + direction + count) % count;
     setIndex(
-      (value) => (value + direction + frames().length) % frames().length,
+      next === referenceIndex() ? (next + direction + count) % count : next,
     );
   }
 
@@ -209,10 +222,10 @@ export default function ArchiveTimeline(props: {
                           "clip-path": `inset(0 ${100 - divider()}% 0 0)`,
                         }}
                       />
-                      <span
-                        class="comparison-divider"
-                        aria-hidden="true"
-                        style={{ left: `${divider()}%` }}
+                      <ComparisonDivider
+                        id="archive-divider"
+                        value={divider()}
+                        onChange={setDivider}
                       />
                     </>
                   )}
@@ -297,7 +310,11 @@ export default function ArchiveTimeline(props: {
                   id="archive-frame"
                   label="Observation (UTC)"
                   value={String(index())}
-                  options={frames().map(frameOption)}
+                  options={frames()
+                    .map(frameOption)
+                    .filter(
+                      (option) => Number(option.value) !== referenceIndex(),
+                    )}
                   onChange={(value) => select(Number(value))}
                 />
                 <Show when={referenceFrame()}>
@@ -308,19 +325,10 @@ export default function ArchiveTimeline(props: {
                     id="archive-reference"
                     label="Reference observation (UTC)"
                     value={String(referenceIndex())}
-                    options={frames().map(frameOption)}
+                    options={frames()
+                      .map(frameOption)
+                      .filter((option) => Number(option.value) !== index())}
                     onChange={(value) => setReferenceIndex(Number(value))}
-                  />
-                  <label for="archive-divider">Comparison divider</label>
-                  <input
-                    type="range"
-                    id="archive-divider"
-                    min="0"
-                    max="100"
-                    value={divider()}
-                    onInput={(event) =>
-                      setDivider(event.currentTarget.valueAsNumber)
-                    }
                   />
                 </Show>
                 <div
@@ -332,7 +340,7 @@ export default function ArchiveTimeline(props: {
                     type="button"
                     aria-label="Previous observation"
                     title="Previous observation"
-                    disabled={frames().length < 2}
+                    disabled={frames().length < (referenceFrame() ? 3 : 2)}
                     onClick={() => {
                       setPlaying(false);
                       step(-1);
@@ -359,7 +367,7 @@ export default function ArchiveTimeline(props: {
                     type="button"
                     aria-label="Next observation"
                     title="Next observation"
-                    disabled={frames().length < 2}
+                    disabled={frames().length < (referenceFrame() ? 3 : 2)}
                     onClick={() => {
                       setPlaying(false);
                       step(1);

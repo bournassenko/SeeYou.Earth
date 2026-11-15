@@ -185,10 +185,20 @@ all-wavelength sequence is also available. Detector wavelength still varies
 across each exposure. These display previews do not provide calibrated
 difference photometry or demonstrate motion in any individual source.
 
+Use **Copy field link** to share the current coordinates and field size or an
+archived example. Reopening a coordinate link runs a new archive search, so
+the available exposures can change. Frame reports reference the exact FITS
+cutout used for measurement.
+
 Use **Markers** to inspect point-like detections computed in the native FITS
 pixels. A marker pins that sky position across the aligned sequence. Marker
 numbers are local to an exposure. In a comparable spectral group, use **Swipe
-compare** to choose a second exposure and inspect both with the shared stretch.
+compare** and drag the handle on the image to inspect two distinct exposures
+with the shared stretch. The handle also supports arrow keys, Home, and End.
+
+SPHEREx DR1 Spectral Images are distributed by NASA/IPAC IRSA under
+[DOI 10.26131/IRSA678](https://doi.org/10.26131/IRSA678). SPHEREx is a joint
+project of JPL and Caltech funded by NASA.
 
 The frame report contains the observation identifiers, date, detector, original
 cutout URL and SHA-256, field geometry, detection method, and the measured
