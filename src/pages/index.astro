@@ -1,5 +1,6 @@
 ---
 import ProjectIntro from "../components/ProjectIntro";
+import SkyExplorer from "../components/SkyExplorer";
 ---
 
 <!doctype html>
@@ -15,45 +16,200 @@ import ProjectIntro from "../components/ProjectIntro";
   </head>
   <body>
     <main>
-      <ProjectIntro />
+      <header class="intro">
+        <ProjectIntro />
+      </header>
+      <SkyExplorer client:load />
     </main>
   </body>
 </html>
 
-<style>
+<style is:global>
   html {
     color-scheme: dark;
-    background: #0b1321;
-    color: #f1f5ff;
+    background: #09090b;
+    color: #fafafa;
     font-family: system-ui, sans-serif;
   }
 
   body {
-    display: grid;
-    min-height: 100svh;
     margin: 0;
-    place-items: center;
   }
 
   main {
     box-sizing: border-box;
-    width: min(100%, 54rem);
-    padding: 2rem clamp(1.5rem, 6vw, 4rem);
+    width: min(100%, 76rem);
+    margin: 0 auto;
+    padding: clamp(2rem, 6vw, 5rem) clamp(1rem, 5vw, 4rem);
   }
 
-  main :global(h1) {
+  h1,
+  h2,
+  h3 {
     margin: 0;
-    font-size: clamp(2.5rem, 9vw, 6rem);
+  }
+
+  h1 {
+    font-size: clamp(2.5rem, 8vw, 5rem);
     line-height: 1;
     letter-spacing: -0.06em;
     overflow-wrap: anywhere;
   }
 
-  main :global(p) {
-    max-width: 40ch;
-    margin: 1.25rem 0 0;
-    color: #b7c6da;
-    font-size: clamp(1rem, 2.5vw, 1.25rem);
+  p {
+    color: #a1a1aa;
     line-height: 1.6;
+  }
+
+  .intro {
+    margin-bottom: 2.5rem;
+  }
+
+  .explorer {
+    display: grid;
+    grid-template-columns: minmax(0, 18rem) minmax(0, 1fr);
+    gap: 1rem;
+  }
+
+  .explorer-controls,
+  .viewer {
+    padding: clamp(1rem, 3vw, 1.5rem);
+    border: 1px solid #27272a;
+    border-radius: 0.75rem;
+  }
+
+  .explorer-controls {
+    background: #18181b;
+  }
+
+  .explorer-controls h2 {
+    margin-bottom: 1.25rem;
+  }
+
+  form,
+  .coordinate-field {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  form {
+    gap: 1rem;
+  }
+
+  label {
+    font-weight: 600;
+  }
+
+  input,
+  select,
+  button {
+    box-sizing: border-box;
+    min-width: 0;
+    min-height: 2.75rem;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid #52525b;
+    border-radius: 0.375rem;
+    font: inherit;
+  }
+
+  input {
+    width: 100%;
+    background: #09090b;
+    color: inherit;
+  }
+
+  button {
+    background: #fafafa;
+    color: #18181b;
+    font-weight: 650;
+  }
+
+  :is(input, select, button, figure img):focus-visible {
+    outline: 2px solid #fafafa;
+    outline-offset: 3px;
+  }
+
+  input[aria-invalid="true"] {
+    border-color: #ffa7ad;
+  }
+
+  .coordinate-field small,
+  .field-error {
+    font-size: 0.875rem;
+  }
+
+  .coordinate-field small,
+  dt {
+    color: #a1a1aa;
+  }
+
+  .field-error {
+    color: #ffa7ad;
+  }
+
+  .viewer {
+    min-height: 16rem;
+    background: #111113;
+  }
+
+  figure {
+    margin: 1rem 0 0;
+  }
+
+  figure img {
+    display: block;
+    width: min(100%, 28rem);
+    height: auto;
+    margin: 0 auto;
+    border-radius: 0.375rem;
+    image-rendering: pixelated;
+  }
+
+  figcaption {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    color: #a1a1aa;
+    font-size: 0.875rem;
+  }
+
+  .timeline {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .playback {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  figcaption a {
+    color: inherit;
+  }
+
+  .viewer-status:not(:empty) {
+    margin-top: 1rem;
+    border-top: 1px solid #27272a;
+  }
+
+  .viewer-status dl {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+    gap: 1rem;
+  }
+
+  .viewer-status dd {
+    margin: 0.25rem 0 0;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+  }
+
+  @media (max-width: 44rem) {
+    .explorer {
+      grid-template-columns: minmax(0, 1fr);
+    }
   }
 </style>
