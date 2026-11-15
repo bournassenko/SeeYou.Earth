@@ -25,6 +25,7 @@ const coordinateFields = [
   {
     id: "ra",
     label: "Right ascension (RA)",
+    example: "210.80227",
     hint: "0° to less than 360°",
     isValid: (value: number) => value >= 0 && value < 360,
     error: "Enter right ascension from 0 to less than 360.",
@@ -32,6 +33,7 @@ const coordinateFields = [
   {
     id: "dec",
     label: "Declination (Dec)",
+    example: "54.34895",
     hint: "−90° to +90°",
     isValid: (value: number) => value >= -90 && value <= 90,
     error: "Enter declination from −90 to 90.",
@@ -39,6 +41,7 @@ const coordinateFields = [
   {
     id: "fov",
     label: "Field of view",
+    example: "0.1",
     hint: "Greater than 0°, up to 180°",
     isValid: (value: number) => value > 0 && value <= 180,
     error: "Enter a field of view greater than 0 and at most 180.",
@@ -74,6 +77,34 @@ export default function SkyExplorer() {
     detections[observation().name as keyof typeof detections];
   const matches = () =>
     gaiaMatches[observation().name as keyof typeof gaiaMatches];
+  const evidence = () => {
+    const { id, date, detector, source, wavelength, bandwidth } = observation();
+    return `data:application/json;charset=utf-8,${encodeURIComponent(
+      JSON.stringify(
+        {
+          observation: {
+            id,
+            date: `${date}Z`,
+            detector,
+            source,
+            wavelength,
+            bandwidth,
+          },
+          frame: "ICRS",
+          coordinateUnit: "degree",
+          spectralUnit: "micrometer",
+          catalog: "Gaia DR3",
+          separationUnit: "arcsecond",
+          detections: sources().map((entry, i) => ({
+            ...entry,
+            gaiaNearby: matches()[i],
+          })),
+        },
+        null,
+        2,
+      ),
+    )}`;
+  };
   const [grid] = createResource(
     ready,
     async (): Promise<CoordinateGrid | null> => {
@@ -193,6 +224,7 @@ export default function SkyExplorer() {
                   name={field.id}
                   type="text"
                   inputmode="decimal"
+                  value={field.example}
                   required
                   aria-invalid={Boolean(errors()[field.id])}
                   aria-describedby={`${field.id}-hint${errors()[field.id] ? ` ${field.id}-error` : ""}`}
@@ -207,9 +239,49 @@ export default function SkyExplorer() {
             )}
           </For>
           <button type="submit" disabled={!ready()}>
-            Set sky region
+            Search archive
           </button>
         </form>
+        <Show when={selection()}>
+          <section
+            class="archive-results"
+            aria-label="IRSA search results"
+            aria-busy={archive.loading}
+          >
+            <h3>SPHEREx archive</h3>
+            <Show when={!archive.loading} fallback={<p>Searching IRSA…</p>}>
+              <Show when={archive()} keyed>
+                {(result) =>
+                  "observations" in result ? (
+                    <Show
+                      when={result.observations.length > 0}
+                      fallback={<p>No observations found.</p>}
+                    >
+                      <ul>
+                        <For each={result.observations}>
+                          {(entry) => (
+                            <li>
+                              <a href={entry.source}>
+                                {entry.id} · {entry.detector}
+                              </a>{" "}
+                              · {entry.date.slice(0, 10)}
+                            </li>
+                          )}
+                        </For>
+                      </ul>
+                    </Show>
+                  ) : (
+                    <p>
+                      {"offline" in result
+                        ? "Archive search is available in the web app."
+                        : "IRSA search unavailable."}
+                    </p>
+                  )
+                }
+              </Show>
+            </Show>
+          </section>
+        </Show>
       </div>
       <section class="viewer" aria-labelledby="viewer-title">
         <h3 id="viewer-title">Pinwheel Galaxy · M101</h3>
@@ -292,8 +364,13 @@ export default function SkyExplorer() {
             </button>
           </div>
         </div>
-        <details class="detections">
+        <details class="detections" id="detected-sources">
           <summary>Detected sources ({sources().length})</summary>
+          <p class="evidence-export">
+            <a href={evidence()} download={`${observation().id}-evidence.json`}>
+              Export detections and provenance
+            </a>
+          </p>
           <Show
             when={sources().length > 0}
             fallback={<p>No sources passed the detection threshold.</p>}
@@ -349,65 +426,6 @@ export default function SkyExplorer() {
             </div>
           </Show>
         </details>
-        <Show when={selection()}>
-          <section
-            class="archive-results"
-            aria-label="IRSA search results"
-            aria-busy={archive.loading}
-          >
-            <h3>SPHEREx archive</h3>
-            <Show when={!archive.loading} fallback={<p>Searching IRSA…</p>}>
-              <Show when={archive()} keyed>
-                {(result) =>
-                  "observations" in result ? (
-                    <Show
-                      when={result.observations.length > 0}
-                      fallback={<p>No observations found.</p>}
-                    >
-                      <ul>
-                        <For each={result.observations}>
-                          {(entry) => (
-                            <li>
-                              <a href={entry.source}>
-                                {entry.id} · {entry.detector}
-                              </a>{" "}
-                              · {entry.date.slice(0, 10)}
-                            </li>
-                          )}
-                        </For>
-                      </ul>
-                    </Show>
-                  ) : (
-                    <p>
-                      {"offline" in result
-                        ? "Archive search is available in the web app."
-                        : "IRSA search unavailable."}
-                    </p>
-                  )
-                }
-              </Show>
-            </Show>
-          </section>
-        </Show>
-        <div role="status" class="viewer-status">
-          <Show when={selection()}>
-            {(values) => (
-              <>
-                <p>Entered sky region · image fixed</p>
-                <dl aria-label="Entered sky region">
-                  <For each={coordinateFields}>
-                    {(field, index) => (
-                      <div>
-                        <dt>{field.label}</dt>
-                        <dd>{values()[index()]}°</dd>
-                      </div>
-                    )}
-                  </For>
-                </dl>
-              </>
-            )}
-          </Show>
-        </div>
       </section>
     </section>
   );

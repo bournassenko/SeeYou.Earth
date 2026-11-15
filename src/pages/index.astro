@@ -1,11 +1,13 @@
 ---
 import DifferencePreview from "../components/DifferencePreview.astro";
+import "@fontsource-variable/inter";
+import "../styles/theme.css";
 import ProjectIntro from "../components/ProjectIntro";
 import SkyExplorer from "../components/SkyExplorer";
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -19,6 +21,11 @@ import SkyExplorer from "../components/SkyExplorer";
     <main>
       <header class="intro">
         <ProjectIntro />
+        <nav aria-label="Analysis">
+          <a href="#explorer-title">Explore</a>
+          <a href="#detected-sources">Sources</a>
+          <a href="#difference-title">Compare</a>
+        </nav>
       </header>
       <SkyExplorer client:load />
       <DifferencePreview />
@@ -29,9 +36,9 @@ import SkyExplorer from "../components/SkyExplorer";
 <style is:global>
   html {
     color-scheme: dark;
-    background: #09090b;
-    color: #fafafa;
-    font-family: system-ui, sans-serif;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: "Inter Variable", system-ui, sans-serif;
   }
 
   body {
@@ -42,7 +49,7 @@ import SkyExplorer from "../components/SkyExplorer";
     box-sizing: border-box;
     width: min(100%, 76rem);
     margin: 0 auto;
-    padding: clamp(2rem, 6vw, 5rem) clamp(1rem, 5vw, 4rem);
+    padding: clamp(1rem, 3vw, 2.5rem) clamp(1rem, 5vw, 4rem);
   }
 
   h1,
@@ -52,19 +59,53 @@ import SkyExplorer from "../components/SkyExplorer";
   }
 
   h1 {
-    font-size: clamp(2.5rem, 8vw, 5rem);
+    font-size: clamp(1.25rem, 4vw, 1.75rem);
     line-height: 1;
-    letter-spacing: -0.06em;
+    letter-spacing: -0.045em;
     overflow-wrap: anywhere;
   }
 
   p {
-    color: #a1a1aa;
+    color: var(--muted-foreground);
     line-height: 1.6;
   }
 
   .intro {
-    margin-bottom: 2.5rem;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .intro nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
+  .intro nav a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.25rem;
+    padding-inline: 0.75rem;
+    color: var(--muted-foreground);
+    border-radius: calc(var(--radius) - 2px);
+    font-size: 0.875rem;
+    text-decoration: none;
+  }
+
+  .intro nav a:hover {
+    color: var(--accent-foreground);
+    background: var(--accent);
+  }
+
+  h2 {
+    font-size: 1.25rem;
+    letter-spacing: -0.025em;
   }
 
   .explorer {
@@ -76,12 +117,12 @@ import SkyExplorer from "../components/SkyExplorer";
   .explorer-controls,
   .viewer {
     padding: clamp(1rem, 3vw, 1.5rem);
-    border: 1px solid #27272a;
-    border-radius: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
   }
 
   .explorer-controls {
-    background: #18181b;
+    background: var(--card);
   }
 
   .explorer-controls h2 {
@@ -109,30 +150,46 @@ import SkyExplorer from "../components/SkyExplorer";
     min-width: 0;
     min-height: 2.75rem;
     padding: 0.6rem 0.75rem;
-    border: 1px solid #52525b;
-    border-radius: 0.375rem;
+    border: 1px solid var(--input);
+    border-radius: calc(var(--radius) - 2px);
     font: inherit;
   }
 
-  input {
+  input,
+  select {
     width: 100%;
-    background: #09090b;
+    background: var(--background);
     color: inherit;
   }
 
   button {
-    background: #fafafa;
-    color: #18181b;
-    font-weight: 650;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    border-color: transparent;
+    font-weight: 550;
   }
 
-  :is(input, select, button, figure img):focus-visible {
-    outline: 2px solid #fafafa;
+  .playback button {
+    background: var(--secondary);
+    color: var(--secondary-foreground);
+  }
+
+  button:hover:not(:disabled) {
+    filter: brightness(0.9);
+    cursor: pointer;
+  }
+
+  button:disabled {
+    opacity: 0.55;
+  }
+
+  :is(input, select, button, a, summary, figure img):focus-visible {
+    outline: 2px solid var(--ring);
     outline-offset: 3px;
   }
 
   input[aria-invalid="true"] {
-    border-color: #ffa7ad;
+    border-color: var(--destructive);
   }
 
   .coordinate-field small,
@@ -142,16 +199,16 @@ import SkyExplorer from "../components/SkyExplorer";
 
   .coordinate-field small,
   dt {
-    color: #a1a1aa;
+    color: var(--muted-foreground);
   }
 
   .field-error {
-    color: #ffa7ad;
+    color: var(--destructive);
   }
 
   .viewer {
     min-height: 16rem;
-    background: #111113;
+    background: var(--card);
   }
 
   figure {
@@ -163,7 +220,7 @@ import SkyExplorer from "../components/SkyExplorer";
     width: min(100%, 28rem);
     height: auto;
     margin: 0 auto;
-    border-radius: 0.375rem;
+    border-radius: calc(var(--radius) - 2px);
     image-rendering: pixelated;
   }
 
@@ -173,7 +230,7 @@ import SkyExplorer from "../components/SkyExplorer";
     justify-content: space-between;
     gap: 0.5rem;
     margin-top: 0.75rem;
-    color: #a1a1aa;
+    color: var(--muted-foreground);
     font-size: 0.875rem;
   }
 
@@ -195,7 +252,7 @@ import SkyExplorer from "../components/SkyExplorer";
   .archive-results,
   .detections {
     margin-top: 1rem;
-    border-top: 1px solid #27272a;
+    border-top: 1px solid var(--border);
     padding-top: 1rem;
   }
 
@@ -220,21 +277,23 @@ import SkyExplorer from "../components/SkyExplorer";
     text-align: left;
   }
 
-  .viewer-status:not(:empty) {
-    margin-top: 1rem;
-    border-top: 1px solid #27272a;
-  }
-
-  .viewer-status dl {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
-    gap: 1rem;
-  }
-
-  .viewer-status dd {
-    margin: 0.25rem 0 0;
-    font-variant-numeric: tabular-nums;
+  .archive-results ul {
+    padding-left: 1rem;
     overflow-wrap: anywhere;
+    font-size: 0.875rem;
+  }
+
+  .archive-results li + li {
+    margin-top: 0.5rem;
+  }
+
+  a {
+    color: var(--foreground);
+    text-underline-offset: 0.2em;
+  }
+
+  .evidence-export {
+    margin: 0.75rem 0 0;
   }
 
   @media (max-width: 44rem) {

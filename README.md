@@ -163,3 +163,18 @@ The search returns up to five SPHEREx DR1 science products whose footprints
 intersect the requested ICRS circle. Field of view is the circle diameter.
 Results link to the original FITS files. The desktop viewer uses bundled
 observations when running locally.
+
+## EC2 preview
+
+`deploy/ec2-bootstrap.sh` boots the application on an Ubuntu 24.04 x86-64
+instance. Substitute `APP_REVISION_PLACEHOLDER` with the full, published
+Git commit before passing the script as EC2 user data. It builds the site,
+serves the static assets with nginx, and runs the archive API on loopback via
+systemd. The public preview exposes HTTP on port 80. The instance requires
+outbound access to GitHub, Ubuntu, Node.js and npm during bootstrap, and to the
+IRSA archive during search. The active build is reported at `/version.txt`;
+the API responds at `/api/health`.
+
+The UI uses the shadcn Nova neutral tokens and Inter typography from preset
+`b0` with native HTML and SolidJS. Source reports export the observation,
+coordinate frame, spectral metadata and nearby catalog entries for review.
