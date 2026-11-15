@@ -77,3 +77,9 @@ sky position from the FITS spectral WCS. The three bands are disjoint at that
 position, so time and wavelength both change between frames. The timeline is
 a visual comparison, and the aligned previews must not be used for calibrated
 image subtraction.
+
+## Experimental source detection
+
+Install `photutils==3.1.1` and `scipy==1.18.1` in the same environment as the renderer and run `python scripts/detect_sources.py` after downloading the original FITS files. The results are linked to the observation selected in the viewer.
+
+The detector works in native FITS pixels. It subtracts the modeled zodiacal foreground, excludes all flagged pixels except pixels carrying only the archive's SOURCE bit, masks invalid variances, estimates a sigma-clipped background, and runs DAOFIND with the exposure PSF width from the FITS header. The reported peak SNR divides the background-subtracted peak by the larger of the measured background scatter or the pixel uncertainty. This is a screening statistic. Crowded or extended regions can create false positives, and a detection alone provides no evidence of motion or variability.
