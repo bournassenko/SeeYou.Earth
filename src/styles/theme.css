@@ -24,6 +24,14 @@
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --radius: 0.625rem;
+  --luma-radius-inset: calc(var(--radius) + 0.5rem);
+  --luma-radius-field: calc(var(--radius) + 0.75rem);
+  --luma-radius-surface: calc(var(--radius) + 1rem);
+  --luma-surface-edge: color-mix(in oklch, var(--foreground) 5%, transparent);
+  --luma-field: color-mix(in oklch, var(--input) 50%, var(--card));
+  --luma-shadow: 0 1px 2px oklch(0 0 0 / 4%), 0 4px 10px oklch(0 0 0 / 7%);
+  --luma-elevation: 0 0 0 1px var(--luma-surface-edge), var(--luma-shadow);
+  --luma-panel-padding: clamp(1rem, 3vw, 1.5rem);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -36,6 +44,7 @@
 
 .dark {
   color-scheme: dark;
+  --luma-surface-edge: color-mix(in oklch, var(--foreground) 10%, transparent);
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);

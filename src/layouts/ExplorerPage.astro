@@ -113,15 +113,16 @@ const { demo = false } = Astro.props;
     flex-wrap: wrap;
     justify-content: space-between;
     gap: 1rem;
-    margin-bottom: 1.25rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid var(--border);
+    margin-bottom: 1.5rem;
   }
 
   .intro nav {
     display: flex;
     flex-wrap: wrap;
     gap: 0.25rem;
+    padding: 0.25rem;
+    border-radius: var(--luma-radius-surface);
+    background: var(--secondary);
   }
 
   .intro nav a {
@@ -130,14 +131,15 @@ const { demo = false } = Astro.props;
     min-height: 2.25rem;
     padding-inline: 0.75rem;
     color: var(--muted-foreground);
-    border-radius: calc(var(--radius) - 2px);
+    border-radius: var(--luma-radius-surface);
     font-size: 0.875rem;
     text-decoration: none;
   }
 
   .intro nav a:hover {
-    color: var(--accent-foreground);
-    background: var(--accent);
+    color: var(--card-foreground);
+    background: var(--card);
+    box-shadow: var(--luma-elevation);
   }
 
   h2 {
@@ -148,19 +150,19 @@ const { demo = false } = Astro.props;
   .explorer {
     display: grid;
     grid-template-columns: minmax(0, 18rem) minmax(0, 1fr);
-    gap: 1rem;
+    align-items: start;
+    gap: clamp(1rem, 2vw, 1.5rem);
   }
 
   .explorer-controls,
-  .viewer {
-    color: var(--card-foreground);
-    padding: clamp(1rem, 3vw, 1.5rem);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-  }
-
-  .explorer-controls {
+  .viewer,
+  .difference-preview,
+  .astrometry-review {
+    padding: var(--luma-panel-padding);
+    border-radius: var(--luma-radius-surface);
     background: var(--card);
+    color: var(--card-foreground);
+    box-shadow: var(--luma-elevation);
   }
 
   .explorer-controls h2 {
@@ -181,26 +183,44 @@ const { demo = false } = Astro.props;
     font-weight: 600;
   }
 
-  input,
+  input:not([type="range"]),
   select,
   button {
     box-sizing: border-box;
     min-width: 0;
     min-height: 2.75rem;
     padding: 0.6rem 0.75rem;
-    border: 1px solid var(--input);
-    border-radius: calc(var(--radius) - 2px);
+    border: 1px solid transparent;
     font: inherit;
   }
 
   input,
-  select {
+  select,
+  textarea {
     width: 100%;
-    background: var(--background);
     color: inherit;
   }
 
+  input:not([type="range"]),
+  select,
+  textarea {
+    border-radius: var(--luma-radius-field);
+    background: var(--luma-field);
+  }
+
+  input[type="file"]::file-selector-button {
+    margin-inline-end: 0.5rem;
+    padding: 0.3rem 0.65rem;
+    border: 0;
+    border-radius: var(--luma-radius-surface);
+    background: var(--secondary);
+    color: var(--secondary-foreground);
+    font: inherit;
+    cursor: pointer;
+  }
+
   button {
+    border-radius: var(--luma-radius-surface);
     background: var(--primary);
     color: var(--primary-foreground);
     border-color: transparent;
@@ -234,9 +254,10 @@ const { demo = false } = Astro.props;
     flex: none;
   }
 
-  :is(input, select, button, a, summary, figure img):focus-visible {
+  :is(input, select, textarea, button, a, summary, figure img):focus-visible {
     outline: 2px solid var(--ring);
-    outline-offset: 3px;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 30%, transparent);
   }
 
   .term-label {
@@ -281,11 +302,10 @@ const { demo = false } = Astro.props;
     box-sizing: border-box;
     width: min(13rem, 65vw);
     padding: 0.5rem 0.65rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
+    border-radius: var(--luma-radius-inset);
     background: var(--popover);
     color: var(--popover-foreground);
-    box-shadow: 0 3px 10px oklch(0 0 0 / 15%);
+    box-shadow: var(--luma-elevation);
     font-size: 0.8125rem;
     font-weight: 400;
     line-height: 1.45;
@@ -324,7 +344,7 @@ const { demo = false } = Astro.props;
     width: min(100%, 28rem);
     height: auto;
     margin: 0 auto;
-    border-radius: calc(var(--radius) - 2px);
+    border-radius: var(--luma-radius-inset);
     image-rendering: pixelated;
   }
 
@@ -357,7 +377,7 @@ const { demo = false } = Astro.props;
     aspect-ratio: 1;
     margin-inline: auto;
     overflow: auto;
-    border-radius: calc(var(--radius) - 2px);
+    border-radius: var(--luma-radius-inset);
     background: var(--background);
   }
 
@@ -491,7 +511,7 @@ const { demo = false } = Astro.props;
     margin-block: 1rem;
     padding: 1rem;
     border: 1px solid var(--border);
-    border-radius: var(--radius);
+    border-radius: var(--luma-radius-inset);
   }
 
   .pixel-spectrum h4 {
@@ -529,7 +549,7 @@ const { demo = false } = Astro.props;
     position: relative;
     height: 7rem;
     border: 1px solid var(--border);
-    border-radius: calc(var(--radius) - 2px);
+    border-radius: var(--luma-radius-inset);
     background: var(--background);
   }
 
@@ -603,7 +623,7 @@ const { demo = false } = Astro.props;
     display: grid;
     padding: 0.35rem 0.55rem;
     gap: 0.15rem;
-    border-radius: calc(var(--radius) - 2px);
+    border-radius: var(--luma-radius-inset);
     color: var(--muted-foreground);
   }
 
@@ -613,12 +633,7 @@ const { demo = false } = Astro.props;
   }
 
   .astrometry-review {
-    color: var(--card-foreground);
-    margin-top: 1rem;
-    padding: clamp(1rem, 3vw, 1.5rem);
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
+    margin-top: clamp(1rem, 2vw, 1.5rem);
   }
 
   .astrometry-review form {
@@ -629,17 +644,10 @@ const { demo = false } = Astro.props;
     box-sizing: border-box;
     width: 100%;
     padding: 0.75rem;
-    background: var(--background);
-    border: 1px solid var(--input);
-    border-radius: calc(var(--radius) - 2px);
-    color: inherit;
+    border: 1px solid transparent;
+    border-radius: var(--luma-radius-inset);
     font-family: ui-monospace, monospace;
     resize: vertical;
-  }
-
-  .astrometry-review textarea:focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: 3px;
   }
 
   .astrometry-review small,
@@ -673,7 +681,7 @@ const { demo = false } = Astro.props;
     gap: 0.35rem;
     padding: 0.75rem;
     border: 1px solid var(--border);
-    border-radius: var(--radius);
+    border-radius: var(--luma-radius-inset);
   }
 
   .astrometry-metrics strong,
@@ -693,7 +701,7 @@ const { demo = false } = Astro.props;
     margin-block: 1rem;
     padding: 0.75rem;
     border: 1px solid var(--border);
-    border-radius: var(--radius);
+    border-radius: var(--luma-radius-inset);
     font-size: 0.875rem;
   }
 

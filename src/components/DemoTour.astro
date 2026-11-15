@@ -373,13 +373,11 @@ import RotateCcw from "@lucide/astro/icons/rotate-ccw";
     flex-wrap: wrap;
     gap: 0.75rem;
     margin-bottom: 1rem;
-    padding: 0.75rem 1rem;
+    padding: 1rem 1.25rem;
     background: var(--popover);
     color: var(--popover-foreground);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    box-shadow: 0 0.35rem 1rem
-      color-mix(in oklch, var(--background) 65%, transparent);
+    border-radius: var(--luma-radius-surface);
+    box-shadow: var(--luma-elevation);
   }
 
   .demo-tour [role="status"] {
@@ -417,7 +415,7 @@ import RotateCcw from "@lucide/astro/icons/rotate-ccw";
     z-index: 4;
     pointer-events: none;
     border: 1px solid oklch(1 0 0 / 25%);
-    border-radius: var(--radius);
+    border-radius: var(--luma-radius-surface);
     box-shadow: 0 0 0 200vmax oklch(0 0 0 / 64%);
   }
 
