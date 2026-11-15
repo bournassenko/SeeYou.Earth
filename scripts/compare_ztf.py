@@ -52,6 +52,14 @@ def prepare(raw, mask, header, target_seeing):
     return signal * scale, noise * scale, valid
 
 
+def save_preview(name, values, valid, lower, upper):
+    display = np.zeros((*values.shape, 4), dtype=np.uint8)
+    scaled = np.clip((values[valid] - lower) / (upper - lower), 0, 1)
+    display[valid, :3] = np.rint(scaled * 255)[:, None]
+    display[valid, 3] = 255
+    Image.fromarray(np.flipud(display)).save(ROOT / f"public/observations/ztf-r-{name}.png")
+
+
 def main():
     exposures = []
     for exposure, (image_hash, mask_hash) in EXPOSURES.items():
@@ -95,10 +103,12 @@ def main():
     limit = float(np.percentile(np.abs(residual[valid]), 99))
     if not np.isfinite(limit) or limit <= 0:
         raise ValueError("Cannot establish a symmetric display range.")
-    display = np.zeros((*second.shape, 4), dtype=np.uint8)
-    display[valid, :3] = np.rint(127.5 * (1 + np.clip(residual[valid] / limit, -1, 1)))[:, None]
-    display[valid, 3] = 255
-    Image.fromarray(np.flipud(display)).save(ROOT / "public/observations/ztf-r-difference.png")
+    save_preview("difference", residual, valid, -limit, limit)
+    lower, upper = np.percentile(np.concatenate((first[valid], second[valid])), [1, 99])
+    if not np.isfinite([lower, upper]).all() or upper <= lower:
+        raise ValueError("Cannot establish a shared exposure display range.")
+    save_preview("earlier", first, valid, lower, upper)
+    save_preview("later", second, valid, lower, upper)
     summary = {
         "dates": [Time(exposure[2]["OBSJD"], format="jd", scale="utc").isot
                   for exposure in exposures],

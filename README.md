@@ -190,3 +190,7 @@ The image can be zoomed to 2× or 4× and panned by scrolling. Pin a pixel to
 keep its ICRS coordinates and marker across aligned exposures. With the image
 focused, the arrow keys move the inspection point and Enter toggles the pin.
 Zoom changes only the view scale.
+
+The difference panel shows the two processed exposures and their residual on
+the same grid and with the same valid-pixel mask. Both exposure previews use
+a shared display stretch. The residual uses its own symmetric scale.

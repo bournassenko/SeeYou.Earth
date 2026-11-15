@@ -10,23 +10,65 @@ const tracks: {
     deltaChiSquared: number;
   }[];
 } = tracksJson;
+
+function dateLabel(date: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${date}Z`));
+}
 ---
 
 <section class="difference-preview" aria-labelledby="difference-title">
   <h2 id="difference-title">Image difference</h2>
-  <figure>
-    <img
-      src="/observations/ztf-r-difference.png"
-      width="50"
-      height="50"
-      alt="ZTF r-band residual image. Light pixels are brighter in the later exposure, dark pixels are fainter, and missing coverage is transparent."
-    />
-    <figcaption>
-      <a href="https://irsa.ipac.caltech.edu/Missions/ztf.html">ZTF · r band</a>
-      <span>11 Apr − 8 Apr 2018</span>
-    </figcaption>
-  </figure>
-  <p>{comparison.validPixels} pixels in common · Experimental</p>
+  <div class="difference-grid">
+    <figure>
+      <img
+        src="/observations/ztf-r-earlier.png"
+        width="50"
+        height="50"
+        alt="Earlier ZTF r-band exposure aligned to the later exposure"
+      />
+      <figcaption>
+        <strong>Earlier</strong>
+        <time datetime={`${comparison.dates[0]}Z`}>
+          {dateLabel(comparison.dates[0])}
+        </time>
+      </figcaption>
+    </figure>
+    <figure>
+      <img
+        src="/observations/ztf-r-later.png"
+        width="50"
+        height="50"
+        alt="Later ZTF r-band exposure with the same brightness scale"
+      />
+      <figcaption>
+        <strong>Later</strong>
+        <time datetime={`${comparison.dates[1]}Z`}>
+          {dateLabel(comparison.dates[1])}
+        </time>
+      </figcaption>
+    </figure>
+    <figure>
+      <img
+        src="/observations/ztf-r-difference.png"
+        width="50"
+        height="50"
+        alt="Residual image. Light pixels are brighter in the later exposure, and dark pixels are fainter."
+      />
+      <figcaption>
+        <strong>Difference</strong>
+        <span>Later − earlier</span>
+      </figcaption>
+    </figure>
+  </div>
+  <p>
+    <a href="https://irsa.ipac.caltech.edu/Missions/ztf.html">ZTF · r band</a> ·{" "}
+    {comparison.validPixels} pixels in common · Experimental
+  </p>
   <details>
     <summary>Motion candidates ({tracks.candidates.length})</summary>
     {tracks.candidates.length === 0 ? (
@@ -53,7 +95,29 @@ const tracks: {
     border-radius: var(--radius);
   }
 
-  .difference-preview figure {
-    max-width: 28rem;
+  .difference-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(0.5rem, 2vw, 1rem);
+    margin-top: 1rem;
+  }
+
+  .difference-grid figure {
+    margin: 0;
+  }
+
+  .difference-grid img {
+    width: 100%;
+    background: var(--background);
+  }
+
+  .difference-grid figcaption {
+    display: grid;
+    justify-content: start;
+    gap: 0.15rem;
+  }
+
+  .difference-grid strong {
+    color: var(--foreground);
   }
 </style>
