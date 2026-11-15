@@ -2,7 +2,6 @@
 import Activity from "@lucide/astro/icons/activity";
 import Binoculars from "@lucide/astro/icons/binoculars";
 import CirclePlay from "@lucide/astro/icons/circle-play";
-import Split from "@lucide/astro/icons/split";
 import AstrometryReview from "../components/AstrometryReview";
 import DemoTour from "../components/DemoTour.astro";
 import DifferencePreview from "../components/DifferencePreview.astro";
@@ -12,14 +11,13 @@ import ProjectIntro from "../components/ProjectIntro";
 import SkyExplorer from "../components/SkyExplorer";
 
 interface Props {
-  page?: "explore" | "compare" | "review" | "demo";
+  page?: "explore" | "review" | "demo";
 }
 
 const { page = "explore" } = Astro.props;
 const demo = page === "demo";
 const navigation = [
   { id: "explore", label: "Explore", href: "/", Icon: Binoculars },
-  { id: "compare", label: "Compare", href: "/compare/", Icon: Split },
   { id: "review", label: "Review", href: "/review/", Icon: Activity },
   { id: "demo", label: "Demo", href: "/demo/", Icon: CirclePlay },
 ] as const;
@@ -56,13 +54,7 @@ const current = navigation.find((entry) => entry.id === page);
         <ProjectIntro />
         <nav aria-label="Workspace">
           {navigation.map(({ id, label, href, Icon }) => (
-            <a
-              href={href}
-              data-field-route={
-                id === "explore" || id === "compare" ? href : undefined
-              }
-              aria-current={page === id ? "page" : undefined}
-            >
+            <a href={href} aria-current={page === id ? "page" : undefined}>
               <Icon aria-hidden="true" /> {label}
             </a>
           ))}
@@ -70,14 +62,8 @@ const current = navigation.find((entry) => entry.id === page);
       </header>
       <main id="dashboard-content" tabindex="-1">
         {demo && <DemoTour />}
-        {(page === "explore" || page === "compare" || demo) && (
-          <SkyExplorer client:load demo={demo} compare={page === "compare"} />
-        )}
-        {page === "compare" && (
-          <details class="reference-comparison">
-            <summary>ZTF reference example</summary>
-            <DifferencePreview />
-          </details>
+        {(page === "explore" || demo) && (
+          <SkyExplorer client:load demo={demo} />
         )}
         {demo && <DifferencePreview />}
         {(page === "review" || demo) && (
@@ -819,18 +805,6 @@ const current = navigation.find((entry) => entry.id === page);
   .spectrum-values .spectrum-active {
     background: var(--accent);
     color: var(--accent-foreground);
-  }
-
-  .reference-comparison {
-    max-width: 72rem;
-    margin: var(--workspace-gap) auto 0;
-  }
-
-  .reference-comparison > summary {
-    width: fit-content;
-    margin: 0 0 var(--workspace-gap);
-    cursor: pointer;
-    font-size: 0.875rem;
   }
 
   .dashboard-demo :is(.difference-preview, .astrometry-review) {
