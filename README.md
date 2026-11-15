@@ -209,3 +209,27 @@ uncovered pixels. The wavelength is an approximate display value from the
 spectral lookup table. Brightness includes the modeled zodiacal contribution
 present in the archive data; the spread across different dates and
 wavelengths is not a temporal light curve.
+
+## Astrometry review
+
+Open **Review** to import or paste a CSV with the header
+`utc,ra_deg,dec_deg,sigma_arcsec`. Supply 3–200 independently timed
+centroid measurements within one degree of the first position. Use UTC
+exposure midpoints ending in `Z`, ICRS coordinates in decimal degrees, and
+one-sigma position uncertainty per axis in arcseconds. Estimates should
+include applicable astrometric systematics. The analysis stays in the browser.
+
+The reviewer uses inverse-variance weights in a local gnomonic projection and
+reports the chi-square of a fixed position and a constant angular velocity.
+It fits a second track excluding the last epoch, then reports that epoch's
+predicted position, residual, and combined per-axis uncertainty. The JSON
+export records the input measurements, provenance, assumptions and diagnostics.
+This local fit does not model parallax, orbit curvature or correlated errors.
+Catalog vetting and independent follow-up are separate steps.
+
+**Try archived track** loads four real observations of the known asteroid
+2024 YR4 from the [MPC Observations API](https://docs.minorplanetcenter.net/mpc-ops-docs/apis/get-obs/).
+They were measured on 2024-12-26 at observatory 703, MPC track
+`00000Ib5XP`. The example uses the larger of `rmsra` and `rmsdec` as
+the common per-axis uncertainty. Observation identifiers are included in
+the report so the sequence can be checked against the archive.
