@@ -8,10 +8,7 @@ from astropy.wcs import WCS
 from photutils.detection import DAOStarFinder
 from scipy.ndimage import binary_dilation
 
-from render_observation import OBSERVATIONS, REFERENCE, ROOT, verified_source
-
-
-SOURCE_FLAG = 1 << 21
+from render_observation import OBSERVATIONS, REFERENCE, ROOT, SOURCE_FLAG, verified_source
 
 
 def detect(observation):

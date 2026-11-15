@@ -201,3 +201,11 @@ Zoom changes only the view scale.
 The difference panel shows the two processed exposures and their residual on
 the same grid and with the same valid-pixel mask. Both exposure previews use
 a shared display stretch. The residual uses its own symmetric scale.
+
+Pin an image position to inspect the archived pixel brightness and its
+pipeline uncertainty across the three observations. Each point samples the
+nearest native detector pixel on the aligned grid and omits flagged or
+uncovered pixels. The wavelength is an approximate display value from the
+spectral lookup table. Brightness includes the modeled zodiacal contribution
+present in the archive data; the spread across different dates and
+wavelengths is not a temporal light curve.

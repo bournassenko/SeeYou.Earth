@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 RAW = ROOT / "data/raw/spherex"
 OUTPUT = ROOT / "public/observations"
 REFERENCE = "m101-dr1-d2"
+SOURCE_FLAG = 1 << 21
 OBSERVATIONS = {
     "m101-dr1-d2": ("2025W21_2C_0401_3D2", "l2b-v27-2026-199", "7e6459d988dfedff4eea7119b5f659b32cf43e20287d99f00cb3281ddf2253ef"),
     "m101-0650_3D2": ("2025W49_2A_0650_3D2", "l2b-v27-2026-209", "365c8d2e82ab6bafd1c8bd505503e60b4a21c43d801e9609b51c4b3781c3b49f"),
@@ -26,6 +27,31 @@ def verified_source(name):
     if hashlib.sha256(path.read_bytes()).hexdigest() != OBSERVATIONS[name][2]:
         raise ValueError(f"The downloaded FITS file does not match the recorded cutout: {path.name}")
     return path
+
+
+def pixel_samples(observation, spectral, nearest_x, nearest_y, inside):
+    rows, columns = np.nonzero(inside)
+    x, y = nearest_x[inside], nearest_y[inside]
+    signal = observation["IMAGE"].data[y, x]
+    variance = observation["VARIANCE"].data[y, x]
+    flags = observation["FLAGS"].data[y, x].astype(np.uint32)
+    wave, _ = spectral.pixel_to_world(x, y)
+    wavelength = wave.to_value(u.um)
+    valid = (
+        ((flags & np.uint32(0xFFFFFFFF ^ SOURCE_FLAG)) == 0)
+        & np.isfinite(signal)
+        & np.isfinite(variance)
+        & (variance > 0)
+        & np.isfinite(wavelength)
+        & (wavelength > 0)
+    )
+    output = [[None for _ in range(inside.shape[1])] for _ in range(inside.shape[0])]
+    for row, column, microns, flux, error in zip(
+        rows[valid], columns[valid], wavelength[valid], signal[valid], np.sqrt(variance[valid]),
+        strict=True,
+    ):
+        output[row][column] = [round(float(value), 6) for value in (microns, flux, error)]
+    return output
 
 
 def render(name, observation_id, version, sky):
@@ -71,6 +97,7 @@ def render(name, observation_id, version, sky):
         Image.fromarray(display).save(output.with_suffix(".png"))
         week = observation_id[:10]
         url = f"https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/level2/{week}/{version}/2/level2_{observation_id}_spx_{version}.fits"
+        samples = pixel_samples(observation, spectral, nearest_x, nearest_y, inside)
         return {
             "name": name,
             "id": observation_id,
@@ -81,7 +108,7 @@ def render(name, observation_id, version, sky):
             "width": width,
             "height": height,
             "source": f"{url}?center=210.80227,54.34895d&size=0.1",
-        }
+        }, samples
 
 
 def main():
@@ -94,8 +121,15 @@ def main():
         if sky[image.data.shape[0] // 2, image.data.shape[1] // 2].separation(center).arcsec >= 6.2:
             raise ValueError("The reference image center is outside the expected cutout.")
 
-    entries = [render(name, observation_id, version, sky)
-               for name, (observation_id, version, _) in OBSERVATIONS.items()]
+    entries = []
+    samples = {}
+    for name, (observation_id, version, _) in OBSERVATIONS.items():
+        entry, samples[name] = render(name, observation_id, version, sky)
+        entries.append(entry)
+    (OUTPUT / "m101-pixel-samples.json").write_text(
+        json.dumps(samples, allow_nan=False, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+    )
     coordinates = np.stack((sky.ra.deg, sky.dec.deg), axis=-1)
     (OUTPUT / f"{REFERENCE}.json").write_text(
         json.dumps(

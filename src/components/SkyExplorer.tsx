@@ -8,6 +8,8 @@ import {
   Show,
 } from "solid-js";
 
+import PixelSpectrum from "./PixelSpectrum";
+
 import detections from "../detections.json";
 import gaiaMatches from "../gaiaMatches.json";
 import observations from "../observations.json";
@@ -87,6 +89,30 @@ export default function SkyExplorer() {
   const reference = observations[0]!;
   const [pixel, setPixel] = createSignal<Pixel>();
   const [pinnedPixel, setPinnedPixel] = createSignal<Pixel>();
+  const [pixelSamples] = createResource(
+    () => Boolean(pinnedPixel()),
+    async (): Promise<Record<
+      string,
+      ([number, number, number] | null)[][]
+    > | null> => {
+      try {
+        const response = await fetch("/observations/m101-pixel-samples.json");
+        return response.ok ? await response.json() : null;
+      } catch {
+        return null;
+      }
+    },
+  );
+  const spectrum = () => {
+    const point = pinnedPixel();
+    const data = pixelSamples();
+    if (!point || !data) return undefined;
+    return observations.map((entry, index) => ({
+      index,
+      date: entry.date.slice(0, 10),
+      values: data[entry.name]?.[point.y]?.[point.x] ?? null,
+    }));
+  };
   const [zoom, setZoom] = createSignal(1);
   const activePixel = () => pinnedPixel() ?? pixel();
   let viewport: HTMLDivElement | undefined;
@@ -569,6 +595,30 @@ export default function SkyExplorer() {
             }
           </Show>
         </p>
+        <Show when={pinnedPixel()}>
+          <Show
+            when={spectrum()}
+            fallback={
+              <p role="status">
+                {pixelSamples.loading
+                  ? "Loading pixel spectrum…"
+                  : "Pixel spectrum unavailable."}
+              </p>
+            }
+          >
+            {(samples) => (
+              <PixelSpectrum
+                samples={samples()}
+                activeIndex={index()}
+                selectObservation={(next) => {
+                  setPlaying(false);
+                  setComparing(false);
+                  showObservation(next);
+                }}
+              />
+            )}
+          </Show>
+        </Show>
         <Show when={inspected()} keyed>
           {(source) => (
             <section
