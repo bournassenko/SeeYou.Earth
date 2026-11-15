@@ -22,6 +22,8 @@ import {
 } from "solid-js";
 
 import ArchiveTimeline, { type ArchiveSeries } from "./ArchiveTimeline";
+import PlaybackSpeed from "./PlaybackSpeed";
+import SelectField from "./SelectField";
 import PixelSpectrum from "./PixelSpectrum";
 import TermHelp from "./TermHelp";
 
@@ -148,6 +150,7 @@ export default function SkyExplorer(props: { demo?: boolean }) {
   });
   const [ready, setReady] = createSignal(false);
   const [index, setIndex] = createSignal(0);
+  const [speed, setSpeed] = createSignal(3);
   const [playing, setPlaying] = createSignal(false);
   const [markers, setMarkers] = createSignal(true);
   const [selectedSource, setSelectedSource] = createSignal<number>();
@@ -276,7 +279,7 @@ export default function SkyExplorer(props: { demo?: boolean }) {
 
   createEffect(() => {
     if (playing()) {
-      const timer = window.setInterval(() => step(1), 1400);
+      const timer = window.setInterval(() => step(1), 1400 / speed());
       onCleanup(() => window.clearInterval(timer));
     }
   });
@@ -512,13 +515,19 @@ export default function SkyExplorer(props: { demo?: boolean }) {
         <Show when={live}>
           <div class="example-fields">
             <label for="example-field">Example field</label>
-            <select
+            <SelectField
               id="example-field"
-              onChange={(event) => {
+              label="Example field"
+              options={exampleFields.map(({ key, name }) => ({
+                value: key,
+                label: name,
+              }))}
+              value={selection()?.[3]}
+              placeholder="Choose a target"
+              onChange={(key) => {
                 const example = exampleFields.find(
-                  ({ name }) => name === event.currentTarget.value,
+                  (entry) => entry.key === key,
                 );
-                event.currentTarget.value = "";
                 if (!example || !coordinateForm) return;
                 for (const id of ["ra", "dec", "fov"] as const) {
                   const input = coordinateForm.elements.namedItem(
@@ -536,12 +545,7 @@ export default function SkyExplorer(props: { demo?: boolean }) {
                   example.key,
                 ]);
               }}
-            >
-              <option value="">Choose a target</option>
-              <For each={exampleFields}>
-                {(entry) => <option value={entry.name}>{entry.name}</option>}
-              </For>
-            </select>
+            />
             <Show when={pending()}>
               <button
                 type="button"
@@ -631,6 +635,8 @@ export default function SkyExplorer(props: { demo?: boolean }) {
                 result={series}
                 heading={heading()}
                 archived={Boolean(selection()?.[3])}
+                speed={speed()}
+                setSpeed={setSpeed}
               />
             )}
           </Show>
@@ -818,22 +824,19 @@ export default function SkyExplorer(props: { demo?: boolean }) {
                   these observation timestamps.
                 </TermHelp>
               </div>
-              <select
+              <SelectField
                 id="observation"
-                value={index()}
-                onChange={(event) => {
+                label="Observation (UTC)"
+                options={observations.map((entry, i) => ({
+                  value: String(i),
+                  label: entry.date.replace("T", " ").slice(0, 19),
+                }))}
+                value={String(index())}
+                onChange={(value) => {
                   setPlaying(false);
-                  showObservation(Number(event.currentTarget.value));
+                  showObservation(Number(value));
                 }}
-              >
-                <For each={observations}>
-                  {(entry, i) => (
-                    <option value={i()}>
-                      {entry.date.replace("T", " ").slice(0, 19)}
-                    </option>
-                  )}
-                </For>
-              </select>
+              />
               <div
                 class="playback"
                 role="group"
@@ -877,6 +880,7 @@ export default function SkyExplorer(props: { demo?: boolean }) {
                 </button>
               </div>
             </div>
+            <PlaybackSpeed value={speed()} onChange={setSpeed} />
             <div class="observation-context">
               <dl>
                 <div>

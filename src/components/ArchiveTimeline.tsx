@@ -2,7 +2,10 @@ import ChevronLeft from "lucide-solid/icons/chevron-left";
 import ChevronRight from "lucide-solid/icons/chevron-right";
 import Pause from "lucide-solid/icons/pause";
 import Play from "lucide-solid/icons/play";
-import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
+import { createEffect, createSignal, onCleanup, Show } from "solid-js";
+
+import PlaybackSpeed from "./PlaybackSpeed";
+import SelectField from "./SelectField";
 
 type ArchiveFrame = {
   id: string;
@@ -32,6 +35,8 @@ export default function ArchiveTimeline(props: {
   result: ArchiveSeries;
   heading: string;
   archived: boolean;
+  speed: number;
+  setSpeed: (value: number) => void;
 }) {
   const [mode, setMode] = createSignal(
     props.result.series.length ? "0" : "all",
@@ -56,7 +61,7 @@ export default function ArchiveTimeline(props: {
 
   createEffect(() => {
     if (!playing()) return;
-    const timer = window.setInterval(() => step(1), 700);
+    const timer = window.setInterval(() => step(1), 700 / props.speed);
     onCleanup(() => window.clearInterval(timer));
   });
 
@@ -96,41 +101,33 @@ export default function ArchiveTimeline(props: {
             <div class="viewer-inspector">
               <div class="timeline">
                 <label for="archive-mode">Spectral selection</label>
-                <select
+                <SelectField
                   id="archive-mode"
+                  label="Spectral selection"
                   value={mode()}
-                  onChange={(event) => {
+                  options={[
+                    ...props.result.series.map((group, i) => ({
+                      value: String(i),
+                      label: `≈${group.frames[0]?.wavelength.toFixed(2)} µm · ${group.frames.length} frames`,
+                    })),
+                    { value: "all", label: "All sampled wavelengths" },
+                  ]}
+                  onChange={(value) => {
                     select(0);
-                    setMode(event.currentTarget.value);
+                    setMode(value);
                   }}
-                >
-                  <For each={props.result.series}>
-                    {(group, i) => (
-                      <option value={i()}>
-                        ≈{group.frames[0]?.wavelength.toFixed(2)} µm ·{" "}
-                        {group.frames.length} frames
-                      </option>
-                    )}
-                  </For>
-                  <option value="all">All sampled wavelengths</option>
-                </select>
+                />
                 <label for="archive-frame">Observation (UTC)</label>
-                <select
+                <SelectField
                   id="archive-frame"
-                  value={index()}
-                  onChange={(event) =>
-                    select(Number(event.currentTarget.value))
-                  }
-                >
-                  <For each={frames()}>
-                    {(entry, i) => (
-                      <option value={i()}>
-                        {entry.date.replace("T", " ").slice(0, 19)} ·{" "}
-                        {entry.detector.replace("SPHEREx-", "")}
-                      </option>
-                    )}
-                  </For>
-                </select>
+                  label="Observation (UTC)"
+                  value={String(index())}
+                  options={frames().map((entry, i) => ({
+                    value: String(i),
+                    label: `${entry.date.replace("T", " ").slice(0, 19)} · ${entry.detector.replace("SPHEREx-", "")}`,
+                  }))}
+                  onChange={(value) => select(Number(value))}
+                />
                 <div
                   class="playback"
                   role="group"
@@ -179,6 +176,7 @@ export default function ArchiveTimeline(props: {
                     : "Wavelengths differ across frames. Changes in brightness may be spectral."}
                 </small>
               </div>
+              <PlaybackSpeed value={props.speed} onChange={props.setSpeed} />
               <div class="observation-context">
                 <dl>
                   <div>
