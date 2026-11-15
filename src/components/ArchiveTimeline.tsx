@@ -28,6 +28,7 @@ type ArchiveFrame = {
   id: string;
   date: string;
   detector: string;
+  release?: "DR1" | "QR3";
   wavelength: number;
   bandwidth: number;
   coverage: number;
@@ -48,6 +49,11 @@ export type ArchiveSeries = {
   dec: number;
   fov: number;
   matched: number;
+  matchCounts?: { DR1: number; QR3: number };
+  archiveCollections?: {
+    id: string;
+    status: "complete" | "truncated" | "unavailable";
+  }[];
   sampled: number;
   failed: number;
   detectionMethod?: {
@@ -116,8 +122,9 @@ export default function ArchiveTimeline(props: {
     const { image, ...metadata } = observation;
     const payload = {
       schemaVersion: 1,
-      release: "SPHEREx DR1",
-      datasetDoi: "10.26131/IRSA678",
+      release: `SPHEREx ${observation.release ?? "DR1"}`,
+      datasetDoi:
+        observation.release === "QR3" ? "10.26131/IRSA662" : "10.26131/IRSA678",
       coordinateFrame: "ICRS",
       coordinateUnit: "degree",
       field: {
@@ -199,7 +206,9 @@ export default function ArchiveTimeline(props: {
           <p role="status">
             {props.result.failed
               ? "No usable images could be loaded. Try again or choose another field."
-              : "No usable SPHEREx images cover this position."}
+              : props.result.matched === 0
+                ? "No observations match this field and date range."
+                : "No sampled exposure covers enough of this field."}
           </p>
         }
       >
@@ -426,17 +435,42 @@ export default function ArchiveTimeline(props: {
                   <div>
                     <dt>Archive</dt>
                     <dd>
-                      <a href={current().cutout}>SPHEREx DR1 FITS</a>
+                      <a href={current().cutout}>
+                        SPHEREx {current().release ?? "DR1"} FITS
+                      </a>
                     </dd>
                   </div>
                 </dl>
                 <small>
                   {props.result.sampled} of {props.result.matched} archive
                   products sampled
+                  {props.result.matchCounts
+                    ? ` · DR1 ${props.result.matchCounts.DR1} · QR3 ${props.result.matchCounts.QR3}`
+                    : ""}
                   {props.result.failed
                     ? ` · ${props.result.failed} downloads failed`
                     : ""}
                 </small>
+                <Show
+                  when={props.result.archiveCollections?.some(
+                    ({ status }) => status === "truncated",
+                  )}
+                >
+                  <small class="archive-coverage-note">
+                    Archive result limit reached. Narrow the observation dates
+                    for a more complete search.
+                  </small>
+                </Show>
+                <Show
+                  when={props.result.archiveCollections?.some(
+                    ({ status }) => status === "unavailable",
+                  )}
+                >
+                  <small class="archive-coverage-note">
+                    Some collections were unavailable. Coverage may be
+                    incomplete.
+                  </small>
+                </Show>
               </div>
             </div>
             <details class="detections archive-detections">

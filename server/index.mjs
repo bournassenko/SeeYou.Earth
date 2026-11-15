@@ -3,7 +3,14 @@ import { fileURLToPath } from "node:url";
 import { createServer } from "node:http";
 
 const endpoint = "https://irsa.ipac.caltech.edu/SIA";
-const fitsPath = /^\/ibe\/data\/spherex\/dr1\/level2\/[\w/-]+\.fits$/;
+const fitsPath = /^\/ibe\/data\/spherex\/(dr1|qr3)\/level2\/[\w/-]+\.fits$/;
+const collections = [
+  "spherex_dr1",
+  "spherex_qr3",
+  "spherex_dr1_deep",
+  "spherex_qr3_deep",
+];
+const dayMilliseconds = 86400000;
 const decimal = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/;
 const maximumConcurrentSearches = 4;
 let activeSearches = 0;
@@ -21,7 +28,7 @@ function coordinate(params, name) {
   return value !== null && decimal.test(value) ? Number(value) : NaN;
 }
 
-function archiveRows(document, limit) {
+function archiveRows(document, limit, collection) {
   const result = document.VOTABLE?.RESOURCE_ARRAY?.find(
     (entry) => entry["<xmlattr>"]?.type === "results",
   );
@@ -47,28 +54,30 @@ function archiveRows(document, limit) {
   if (columns.some((column) => column < 0)) {
     throw new Error("IRSA returned an unexpected set of columns.");
   }
-  if (table === undefined || table === "") return [];
+  if (table === undefined || table === "")
+    return { rows: [], truncated: status === "OVERFLOW" };
   if (!Array.isArray(table))
     throw new Error("IRSA returned an invalid result table.");
 
-  return table.slice(0, limit).map((row) => {
+  const rows = table.slice(0, limit).map((row) => {
     const [source, id, detector, mjd, pointingRa, pointingDec] = columns.map(
       (column) => row[column],
     );
     const url = new URL(source);
+    const release = fitsPath.exec(url.pathname)?.[1];
     if (
       url.origin !== "https://irsa.ipac.caltech.edu" ||
       url.username ||
       url.password ||
       url.search ||
       url.hash ||
-      !fitsPath.test(url.pathname)
+      release !== collection.split("_")[1]
     ) {
       throw new Error("IRSA returned an unexpected FITS URL.");
     }
     const timestamp =
       mjd != null && String(mjd).trim() !== ""
-        ? new Date((Number(mjd) - 40587) * 86400000)
+        ? new Date((Number(mjd) - 40587) * dayMilliseconds)
         : undefined;
     const date =
       timestamp && Number.isFinite(timestamp.getTime())
@@ -79,9 +88,11 @@ function archiveRows(document, limit) {
       detector,
       date,
       source: url.href,
+      release: release.toUpperCase(),
       pointing: [Number(pointingRa), Number(pointingDec)],
     };
   });
+  return { rows, truncated: status === "OVERFLOW" };
 }
 
 function sampleObservations(observations) {
@@ -94,8 +105,10 @@ function sampleObservations(observations) {
   return [...detectors.values()]
     .flatMap((entries) => {
       entries.sort((a, b) => a.date.localeCompare(b.date));
-      if (entries.length <= 4) return entries;
-      const times = entries.map(({ date }) => Date.parse(date) / 86400000);
+      if (entries.length <= 5) return entries;
+      const times = entries.map(
+        ({ date }) => Date.parse(date) / dayMilliseconds,
+      );
       let best = Infinity;
       let pair = [];
       for (let first = 0; first < entries.length - 1; first++) {
@@ -118,13 +131,61 @@ function sampleObservations(observations) {
       }
 
       const chosen = new Set([entries[0], entries.at(-1), ...pair]);
+      for (const release of Map.groupBy(
+        entries,
+        (entry) => entry.release,
+      ).values()) {
+        if (chosen.size === 5) break;
+        chosen.add(release.at(-1));
+      }
       for (const fraction of [1 / 3, 2 / 3, 1 / 2]) {
-        if (chosen.size === 4) break;
+        if (chosen.size === 5) break;
         chosen.add(entries[Math.round((entries.length - 1) * fraction)]);
       }
       return [...chosen];
     })
-    .map(({ id, detector, date, source }) => ({ id, detector, date, source }));
+    .map(({ id, detector, date, source, release }) => ({
+      id,
+      detector,
+      date,
+      source,
+      release,
+    }));
+}
+
+function dateBoundary(value) {
+  if (value === null) return undefined;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return NaN;
+  const milliseconds = Date.parse(`${value}T00:00:00Z`);
+  return Number.isFinite(milliseconds) &&
+    new Date(milliseconds).toISOString().slice(0, 10) === value
+    ? milliseconds
+    : NaN;
+}
+
+async function searchCollection(
+  collection,
+  { ra, dec, radius, limit, from, until },
+  signal,
+) {
+  const archiveUrl = new URL(endpoint);
+  archiveUrl.search = new URLSearchParams({
+    COLLECTION: collection,
+    POS: `CIRCLE ${ra} ${dec} ${radius}`,
+    MAXREC: String(limit),
+    RESPONSEFORMAT: "json",
+  });
+  if (from !== undefined || until !== undefined) {
+    const lower = from === undefined ? "-Inf" : from / dayMilliseconds + 40587;
+    const upper =
+      until === undefined ? "+Inf" : until / dayMilliseconds + 40587;
+    archiveUrl.searchParams.set("TIME", `${lower} ${upper}`);
+  }
+  const upstream = await fetch(archiveUrl, {
+    signal: AbortSignal.any([signal, AbortSignal.timeout(20000)]),
+  });
+  if (!upstream.ok) throw new Error(`IRSA returned HTTP ${upstream.status}.`);
+  return archiveRows(await upstream.json(), limit, collection);
 }
 
 function renderSeries(input, signal) {
@@ -184,7 +245,13 @@ const server = createServer(async (request, response) => {
       error: "Field of view must be between 0.02° and 0.4°.",
     });
   }
-  const key = series && JSON.stringify([ra, dec, fov]);
+  const from = dateBoundary(url.searchParams.get("from"));
+  const through = dateBoundary(url.searchParams.get("to"));
+  if (Number.isNaN(from) || Number.isNaN(through) || from > through) {
+    return send(400, { error: "Invalid UTC observation date range." });
+  }
+  const until = through === undefined ? undefined : through + dayMilliseconds;
+  const key = series && JSON.stringify([ra, dec, fov, from, through]);
   const cached = key && seriesCache.get(key);
   if (cached) {
     if (cached.expires > Date.now()) return send(200, cached.data);
@@ -203,19 +270,45 @@ const server = createServer(async (request, response) => {
   activeSearches += 1;
   if (series) activeSeries += 1;
   try {
-    const archiveUrl = new URL(endpoint);
-    const limit = series ? 2000 : 5;
-    archiveUrl.search = new URLSearchParams({
-      COLLECTION: "spherex_dr1",
-      POS: `CIRCLE ${ra} ${dec} ${series ? 0.00001 : fov / 2}`,
-      MAXREC: String(limit),
-      RESPONSEFORMAT: "json",
-    });
-    const upstream = await fetch(archiveUrl, {
-      signal: AbortSignal.any([client.signal, AbortSignal.timeout(20000)]),
-    });
-    if (!upstream.ok) throw new Error(`IRSA returned HTTP ${upstream.status}.`);
-    const observations = archiveRows(await upstream.json(), limit);
+    const requested = series ? collections : [collections[0]];
+    const search = {
+      ra,
+      dec,
+      radius: series ? 0.00001 : fov / 2,
+      limit: series ? 2000 : 5,
+      from,
+      until,
+    };
+    const retrieved = await Promise.allSettled(
+      requested.map((collection) =>
+        searchCollection(collection, search, client.signal),
+      ),
+    );
+    const archiveCollections = retrieved.map((result, index) => ({
+      id: requested[index],
+      status:
+        result.status === "rejected"
+          ? "unavailable"
+          : result.value.truncated
+            ? "truncated"
+            : "complete",
+    }));
+    if (retrieved.every((result) => result.status === "rejected"))
+      throw retrieved[0].reason;
+    const unique = new Map();
+    for (const result of retrieved) {
+      if (result.status !== "fulfilled") continue;
+      for (const row of result.value.rows) {
+        const time = Date.parse(row.date);
+        if (
+          (from !== undefined && !(time >= from)) ||
+          (until !== undefined && !(time < until))
+        )
+          continue;
+        if (!unique.has(row.source)) unique.set(row.source, row);
+      }
+    }
+    const observations = [...unique.values()];
     if (!series) {
       return send(200, {
         observations: observations.map(({ id, detector, date, source }) => ({
@@ -230,8 +323,25 @@ const server = createServer(async (request, response) => {
     const result = entries.length
       ? await renderSeries({ ra, dec, fov, entries }, client.signal)
       : { series: [], all: null, failed: 0, sampled: 0 };
-    const data = { ...result, ra, dec, fov, matched: observations.length };
-    if (result.all?.frames.length > 1) {
+    const matchCounts = Object.fromEntries(
+      ["DR1", "QR3"].map((release) => [
+        release,
+        observations.filter((row) => row.release === release).length,
+      ]),
+    );
+    const data = {
+      ...result,
+      ra,
+      dec,
+      fov,
+      matched: observations.length,
+      matchCounts,
+      archiveCollections,
+    };
+    if (
+      result.all?.frames.length > 1 &&
+      archiveCollections.every(({ status }) => status !== "unavailable")
+    ) {
       if (seriesCache.size >= maximumCacheEntries) {
         seriesCache.delete(seriesCache.keys().next().value);
       }

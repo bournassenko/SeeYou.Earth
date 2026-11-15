@@ -26,7 +26,7 @@ EXAMPLE_DIR = Path(__file__).resolve().parents[1] / "public/observations/example
 def measure(url, grid, size):
     parsed = urlparse(url)
     if parsed.scheme != "https" or parsed.netloc != "irsa.ipac.caltech.edu" or not (
-        parsed.path.startswith("/ibe/data/spherex/dr1/level2/") and parsed.path.endswith(".fits")
+        parsed.path.startswith(("/ibe/data/spherex/dr1/level2/", "/ibe/data/spherex/qr3/level2/")) and parsed.path.endswith(".fits")
     ):
         raise ValueError("Unexpected archive URL.")
 

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const pngSignature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
-const targets = ["barnard", "epsilon", "wise", "rw", "dra"];
+const targets = ["barnard", "epsilon", "wise", "rw", "dra", "nep", "sep"];
 const base = process.argv[2];
 
 function checkFrames(frames) {
@@ -29,7 +29,7 @@ function checkFrames(frames) {
     assert.equal(cutout.origin, "https://irsa.ipac.caltech.edu");
     assert.match(
       cutout.pathname,
-      /^\/ibe\/data\/spherex\/dr1\/level2\/.+\.fits$/,
+      /^\/ibe\/data\/spherex\/(dr1|qr3)\/level2\/.+\.fits$/,
     );
     assert(
       cutout.searchParams.has("center") && cutout.searchParams.has("size"),
@@ -56,6 +56,16 @@ for (const target of targets) {
       );
   assert.equal(data.detectionMethod.id, "spherex-daofind-v1");
   assert(data.all.frames.some((frame) => frame.detection.total > 0));
+  if (target === "nep" || target === "sep") {
+    assert(data.matchCounts.DR1 > 0 && data.matchCounts.QR3 > 0);
+    assert(data.all.frames.some((frame) => frame.release === "QR3"));
+    assert(
+      data.series.some(
+        (group) =>
+          new Set(group.frames.map((frame) => frame.release)).size === 2,
+      ),
+    );
+  }
   assert(data.series.length > 0, `No comparable sequence for ${target}`);
   checkFrames(data.all.frames);
   for (const group of data.series) {

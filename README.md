@@ -6,7 +6,7 @@ SeeYou.Earth is an open-source project to make astronomical observations easier 
 
 - Implemented: an Astro homepage and a SolidJS Sky Explorer form with decimal-degree coordinate validation.
 - Implemented: three aligned SPHEREx observation previews, an observation timeline, and ICRS pixel coordinates.
-- Implemented: live SPHEREx image search and playback by coordinates, with five archived example fields and links to the original FITS cutouts.
+- Implemented: live SPHEREx image search and playback by coordinates, with seven archived example fields and links to the original FITS cutouts.
 
 ## Local development
 
@@ -36,7 +36,7 @@ The production build is written to `dist/`.
 
 ## M101 observation preview
 
-The viewer displays SPHEREx DR1 Level 2 cutouts from NASA/IPAC IRSA. M101 is the bundled starting field. The table describes its reference observation.
+The viewer displays SPHEREx DR1 and QR3 Level 2 cutouts from NASA/IPAC IRSA. M101 is the bundled starting field. The table describes its reference observation.
 
 | Field              | Value                                   |
 | ------------------ | --------------------------------------- |
@@ -170,8 +170,10 @@ Run `npm run api` and `npm run dev` in separate terminals. Astro forwards
 `dist/` with any HTTPS web server that proxies `/api/` to the loopback service.
 Enter ICRS right ascension and declination in decimal degrees and choose a
 square field from 0.02° to 0.4°. The archive is queried for exposures covering
-the center. Up to four exposures per detector are sampled, including early and
-late visits when available. A nearby detector pointing is used as a search
+the center across the DR1 and QR3 wide and deep collections. Duplicate FITS
+URLs are collapsed. Up to five exposures per detector are sampled, including
+early and late visits when available. Use **Observation dates (UTC)** to
+request another interval, or refine a search when IRSA caps the result count. A nearby detector pointing is used as a search
 heuristic and is verified against each cutout's spectral WCS.
 
 The worker uses the FITS celestial WCS to align cutouts onto a north-up
@@ -198,8 +200,10 @@ numbers are local to an exposure. In a comparable spectral group, use **Swipe
 compare** and drag the handle on the image to inspect two distinct exposures
 with the shared stretch. The handle also supports arrow keys, Home, and End.
 
-SPHEREx DR1 Spectral Images are distributed by NASA/IPAC IRSA under
-[DOI 10.26131/IRSA678](https://doi.org/10.26131/IRSA678). SPHEREx is a joint
+NASA/IPAC IRSA distributes
+[DR1 Spectral Images](https://doi.org/10.26131/IRSA678) and
+[QR3 Spectral Images](https://doi.org/10.26131/IRSA662).
+IRSA documents both releases as a uniformly processed set. SPHEREx is a joint
 project of JPL and Caltech funded by NASA.
 
 The frame report contains the observation identifiers, date, detector, original
@@ -217,7 +221,7 @@ filename stem to measure one field. The script preserves the preview pixels
 and records the SHA-256 of the FITS cutout used for measurement.
 
 The example picker uses archived preview sequences for Barnard’s Star,
-Epsilon Indi B, WISE 0855, RW Aurigae, and R Draconis. Use **Search archive**
+Epsilon Indi B, WISE 0855, RW Aurigae, R Draconis, and the North and South ecliptic poles. Use **Search archive**
 to request new images for the displayed field. The preview JSON files can be
 regenerated from the running API using the preset coordinates and
 `/api/observations?mode=series&ra=…&dec=…&fov=…`. Keep original cutout URLs

@@ -109,17 +109,36 @@ const exampleFields = [
     dec: "66.754979",
     fov: "0.08",
   },
+  {
+    key: "nep",
+    name: "North ecliptic pole",
+    ra: "270",
+    dec: "66.5607",
+    fov: "0.1",
+  },
+  {
+    key: "sep",
+    name: "South ecliptic pole",
+    ra: "90",
+    dec: "-66.5607",
+    fov: "0.1",
+  },
 ] as const;
 
 type CoordinateId = (typeof coordinateFields)[number]["id"];
 type FieldErrors = Partial<Record<CoordinateId, string>>;
-type FieldSelection = [string, string, string, string?];
+type FieldSelection = Record<CoordinateId, string> & {
+  target?: string;
+  from?: string;
+  to?: string;
+};
 type ExampleField = (typeof exampleFields)[number];
 
 export default function SkyExplorer(props: { demo?: boolean }) {
   const [errors, setErrors] = createSignal<FieldErrors>({});
   const [selection, setSelection] = createSignal<FieldSelection>();
   const [linkStatus, setLinkStatus] = createSignal("");
+  const [dateError, setDateError] = createSignal("");
   const [heading, setHeading] = createSignal("Sky field");
   const live = !props.demo;
   const pending = () => live && Boolean(selection());
@@ -137,11 +156,13 @@ export default function SkyExplorer(props: { demo?: boolean }) {
     const request = new AbortController();
     archiveRequest = request;
     try {
-      const [ra, dec, fov, example] = values;
+      const { ra, dec, fov, target, from, to } = values;
       const query = new URLSearchParams({ ra, dec, fov });
+      if (from) query.set("from", from);
+      if (to) query.set("to", to);
       if (live) query.set("mode", "series");
-      const endpoint = example
-        ? `/observations/examples/${example}.json`
+      const endpoint = target
+        ? `/observations/examples/${target}.json`
         : `/api/observations?${query}`;
       const response = await fetch(endpoint, { signal: request.signal });
       if (response.status === 429 || response.status === 503)
@@ -435,20 +456,26 @@ export default function SkyExplorer(props: { demo?: boolean }) {
         const input = coordinateForm.elements.namedItem(id) as HTMLInputElement;
         input.value = params.get(id) ?? "";
       }
+      for (const key of ["from", "to"]) {
+        const input = coordinateForm.elements.namedItem(
+          key,
+        ) as HTMLInputElement;
+        input.value = params.get(key) ?? "";
+      }
       coordinateForm.requestSubmit();
     }
   });
 
   function fieldUrl(values?: FieldSelection) {
     const url = new URL(window.location.href);
-    for (const key of ["target", "ra", "dec", "fov"])
+    for (const key of ["target", "ra", "dec", "fov", "from", "to"])
       url.searchParams.delete(key);
     if (!values) return url;
-    const [ra, dec, fov, example] = values;
-    if (example) url.searchParams.set("target", example);
+    if (values.target) url.searchParams.set("target", values.target);
     else
-      for (const [key, value] of Object.entries({ ra, dec, fov }))
-        url.searchParams.set(key, value);
+      for (const [key, value] of Object.entries(values)) {
+        if (value) url.searchParams.set(key, value);
+      }
     return url;
   }
 
@@ -468,9 +495,19 @@ export default function SkyExplorer(props: { demo?: boolean }) {
       const input = coordinateForm.elements.namedItem(id) as HTMLInputElement;
       input.value = example[id];
     }
+    for (const key of ["from", "to"]) {
+      const input = coordinateForm.elements.namedItem(key) as HTMLInputElement;
+      input.value = "";
+    }
+    setDateError("");
     setErrors({});
     openField(
-      [example.ra, example.dec, example.fov, example.key],
+      {
+        ra: example.ra,
+        dec: example.dec,
+        fov: example.fov,
+        target: example.key,
+      },
       example.name,
     );
   }
@@ -493,14 +530,14 @@ export default function SkyExplorer(props: { demo?: boolean }) {
     const form = event.currentTarget;
     const formData = new FormData(form);
     const nextErrors: FieldErrors = {};
-    const coordinates: [string, string, string] = ["", "", ""];
+    const coordinates: FieldSelection = { ra: "", dec: "", fov: "" };
 
-    for (const [index, field] of coordinateFields.entries()) {
+    for (const field of coordinateFields) {
       const input = String(formData.get(field.id) ?? "").trim();
       if (!decimalDegrees.test(input) || !field.isValid(Number(input))) {
         nextErrors[field.id] = field.error;
       }
-      coordinates[index] = input;
+      coordinates[field.id] = input;
     }
 
     setErrors(nextErrors);
@@ -513,22 +550,33 @@ export default function SkyExplorer(props: { demo?: boolean }) {
 
     if (
       live &&
-      (Number(coordinates[2]) < 0.02 || Number(coordinates[2]) > 0.4)
+      (Number(coordinates.fov) < 0.02 || Number(coordinates.fov) > 0.4)
     ) {
       setErrors({ fov: "Enter a field of view from 0.02° to 0.4°." });
       form.querySelector<HTMLInputElement>("#fov")?.focus();
       return;
     }
 
+    const from = String(formData.get("from") ?? "");
+    const to = String(formData.get("to") ?? "");
+    setDateError("");
+    if (from && to && from > to) {
+      setDateError("The end date must be on or after the start date.");
+      form.querySelector<HTMLInputElement>("#archive-to")?.focus();
+      return;
+    }
+    if (from) coordinates.from = from;
+    if (to) coordinates.to = to;
+
     const example = exampleFields.find(
       ({ ra, dec, fov }) =>
-        ra === coordinates[0] &&
-        dec === coordinates[1] &&
-        fov === coordinates[2],
+        ra === coordinates.ra &&
+        dec === coordinates.dec &&
+        fov === coordinates.fov,
     );
     openField(
       coordinates,
-      example?.name ?? `RA ${coordinates[0]}° · Dec ${coordinates[1]}°`,
+      example?.name ?? `RA ${coordinates.ra}° · Dec ${coordinates.dec}°`,
     );
   }
 
@@ -578,6 +626,36 @@ export default function SkyExplorer(props: { demo?: boolean }) {
           <button type="submit" disabled={!ready()}>
             <Search aria-hidden="true" /> Search archive
           </button>
+          <Show when={live}>
+            <details
+              class="archive-date-filter"
+              open={Boolean(
+                selection()?.from || selection()?.to || dateError(),
+              )}
+            >
+              <summary>Observation dates (UTC)</summary>
+              <div>
+                <div class="coordinate-field">
+                  <label for="archive-from">From</label>
+                  <input id="archive-from" name="from" type="date" />
+                </div>
+                <div class="coordinate-field">
+                  <label for="archive-to">Through</label>
+                  <input
+                    id="archive-to"
+                    name="to"
+                    type="date"
+                    aria-invalid={Boolean(dateError())}
+                  />
+                </div>
+              </div>
+              <Show when={dateError()}>
+                <small role="alert" class="field-error">
+                  {dateError()}
+                </small>
+              </Show>
+            </details>
+          </Show>
         </form>
         <Show when={live}>
           <div class="example-fields">
@@ -589,7 +667,7 @@ export default function SkyExplorer(props: { demo?: boolean }) {
                 value: key,
                 label: name,
               }))}
-              value={selection()?.[3]}
+              value={selection()?.target}
               placeholder="Choose a target"
               onChange={(key) => {
                 const example = exampleFields.find(
@@ -608,6 +686,7 @@ export default function SkyExplorer(props: { demo?: boolean }) {
                   onClick={() => {
                     archiveRequest?.abort();
                     setSelection(undefined);
+                    setDateError("");
                     setLinkStatus("");
                     window.history.replaceState(
                       window.history.state,
@@ -712,7 +791,7 @@ export default function SkyExplorer(props: { demo?: boolean }) {
               <ArchiveTimeline
                 result={series}
                 heading={heading()}
-                archived={Boolean(selection()?.[3])}
+                archived={Boolean(selection()?.target)}
                 speed={speed()}
                 setSpeed={setSpeed}
               />
