@@ -3,4 +3,5 @@ import { defineConfig } from "astro/config";
 
 export default defineConfig({
   integrations: [solid()],
+  devToolbar: { enabled: false },
 });
