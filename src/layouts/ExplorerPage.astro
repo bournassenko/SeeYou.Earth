@@ -1,4 +1,9 @@
 ---
+import Activity from "@lucide/astro/icons/activity";
+import Binoculars from "@lucide/astro/icons/binoculars";
+import CirclePlay from "@lucide/astro/icons/circle-play";
+import Crosshair from "@lucide/astro/icons/crosshair";
+import Split from "@lucide/astro/icons/split";
 import AstrometryReview from "../components/AstrometryReview";
 import DemoTour from "../components/DemoTour.astro";
 import DifferencePreview from "../components/DifferencePreview.astro";
@@ -26,11 +31,21 @@ const { demo = false } = Astro.props;
       <header class="intro">
         <ProjectIntro />
         <nav aria-label="Analysis">
-          <a href="#explorer-title">Explore</a>
-          <a href="#detected-sources">Sources</a>
-          <a href="#difference-title">Compare</a>
-          <a href="#astrometry-title">Review</a>
-          <a href={demo ? "/" : "/demo"}>{demo ? "Exit demo" : "Demo"}</a>
+          <a href="#explorer-title">
+            <Binoculars aria-hidden="true" /> Explore
+          </a>
+          <a href="#detected-sources">
+            <Crosshair aria-hidden="true" /> Sources
+          </a>
+          <a href="#difference-title">
+            <Split aria-hidden="true" /> Compare
+          </a>
+          <a href="#astrometry-title">
+            <Activity aria-hidden="true" /> Review
+          </a>
+          <a href={demo ? "/" : "/demo"}>
+            <CirclePlay aria-hidden="true" /> {demo ? "Exit demo" : "Demo"}
+          </a>
         </nav>
       </header>
       {demo && <DemoTour />}
@@ -193,6 +208,19 @@ const { demo = false } = Astro.props;
 
   button:disabled {
     opacity: 0.55;
+  }
+
+  :is(button, .intro nav a, .evidence-export a, .astrometry-results a) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+  }
+
+  :is(button, .intro nav a, .evidence-export a, .astrometry-results a) svg {
+    width: 1rem;
+    height: 1rem;
+    flex: none;
   }
 
   :is(input, select, button, a, summary, figure img):focus-visible {

@@ -1,3 +1,10 @@
+---
+import ChevronRight from "@lucide/astro/icons/chevron-right";
+import Pause from "@lucide/astro/icons/pause";
+import Play from "@lucide/astro/icons/play";
+import RotateCcw from "@lucide/astro/icons/rotate-ccw";
+---
+
 <div id="demo-tour" class="demo-tour" aria-label="Automatic product tour">
   <div role="status" aria-atomic="true">
     <strong data-demo-title>Preparing the demo</strong>
@@ -6,17 +13,36 @@
   <div class="demo-controls">
     <progress aria-label="Tour progress" value="0"></progress>
     <button type="button" data-demo-pause disabled>
-      Pause
+      <span data-icon-pause>
+        <Pause aria-hidden="true" />
+      </span>
+      <span data-icon-resume hidden>
+        <Play aria-hidden="true" />
+      </span>
+      <span data-icon-replay hidden>
+        <RotateCcw aria-hidden="true" />
+      </span>
+      <span data-pause-label>Pause</span>
     </button>
     <button type="button" data-demo-next disabled>
-      Next
+      Next <ChevronRight aria-hidden="true" />
     </button>
   </div>
 </div>
 
 <div class="demo-spotlight" aria-hidden="true" hidden></div>
 <div class="demo-pointer" aria-hidden="true" hidden>
-  <span></span>
+  <span>
+    <svg viewBox="0 0 32 40" aria-hidden="true" focusable="false">
+      <path
+        d="M3 2.5v30.2l7.6-7.1 5 11.5 5.2-2.3-5-11.3H27L3 2.5Z"
+        fill="#090909"
+        stroke="#fff"
+        stroke-width="2.3"
+        stroke-linejoin="round"
+      />
+    </svg>
+  </span>
 </div>
 
 <script>
@@ -44,7 +70,7 @@
         focus: ".explorer-controls",
         control: ".explorer-controls button[type=submit]",
         action: "search",
-        duration: 7800,
+        duration: 5200,
       },
       {
         title: "Inspect a source",
@@ -53,7 +79,7 @@
         focus: ".viewer",
         control: ".source-marker",
         action: "sources",
-        duration: 5600,
+        duration: 3600,
       },
       {
         title: "Compare two exposures",
@@ -62,7 +88,7 @@
         focus: ".viewer",
         control: ".viewer-tools button[aria-pressed]:last-child",
         action: "compare",
-        duration: 6200,
+        duration: 3900,
       },
       {
         title: "Read a pixel spectrum",
@@ -72,7 +98,7 @@
         control: ".image-controls button[aria-pressed]",
         action: "spectrum",
         result: ".pixel-spectrum",
-        duration: 6800,
+        duration: 4600,
       },
       {
         title: "Inspect the difference",
@@ -81,7 +107,7 @@
         focus: ".difference-preview",
         control: ".difference-preview summary",
         action: "difference",
-        duration: 5400,
+        duration: 3600,
       },
       {
         title: "Review a track",
@@ -91,7 +117,7 @@
         control: ".archived-track",
         action: "review",
         result: ".astrometry-results",
-        duration: 7600,
+        duration: 5200,
       },
     ];
 
@@ -106,6 +132,7 @@
     let focus: Element | null = null;
     let cursorTarget: Element | null = null;
     let cursorOffset = 0.5;
+    let cursorOffsetY = 0.5;
     let pendingFrame = 0;
 
     function schedule(delay: number, action: () => void) {
@@ -151,7 +178,7 @@
       } else if (cursorTarget) {
         const bounds = cursorTarget.getBoundingClientRect();
         const x = bounds.left + bounds.width * cursorOffset;
-        const y = bounds.top + bounds.height / 2;
+        const y = bounds.top + bounds.height * cursorOffsetY;
         pointer.hidden = x < 0 || y < 0 || x >= innerWidth || y >= innerHeight;
         if (!pointer.hidden)
           pointer.style.transform = `translate(${x}px, ${y}px)`;
@@ -163,10 +190,69 @@
         pendingFrame = window.requestAnimationFrame(refreshOverlays);
     }
 
-    function moveTo(selector: string, offset = 0.5) {
+    function moveTo(selector: string, offset = 0.5, vertical = 0.5) {
       cursorTarget = document.querySelector(selector);
       cursorOffset = offset;
+      cursorOffsetY = vertical;
       refreshOverlays();
+    }
+
+    function labelPlayback(label: "Pause" | "Resume" | "Replay") {
+      button.querySelector("[data-pause-label]")!.textContent = label;
+      for (const name of ["pause", "resume", "replay"]) {
+        button
+          .querySelector(`[data-icon-${name}]`)
+          ?.toggleAttribute("hidden", name !== label.toLowerCase());
+      }
+    }
+
+    function guidePointer(duration: number, advance: () => void) {
+      if (reducedMotion.matches || duration < 850) {
+        schedule(duration, advance);
+        return;
+      }
+
+      const offsets = [
+        [0.34, 0.45],
+        [0.63, 0.51],
+        [0.5, 0.61],
+        [0.71, 0.42],
+      ];
+      let step = 0;
+      let left = duration;
+
+      function drift() {
+        if (left < 850) {
+          schedule(left, advance);
+          return;
+        }
+        if (focus) {
+          cursorTarget = focus;
+          [cursorOffset, cursorOffsetY] = offsets[step % offsets.length];
+          const bounds = focus.getBoundingClientRect();
+          const visibleTop = Math.max(
+            bounds.top,
+            tour!.getBoundingClientRect().bottom,
+          );
+          const visibleBottom = Math.min(innerHeight, bounds.bottom);
+          if (visibleBottom > visibleTop && bounds.height > 0) {
+            cursorOffsetY =
+              (visibleTop +
+                (visibleBottom - visibleTop) * cursorOffsetY -
+                bounds.top) /
+              bounds.height;
+          }
+          refreshOverlays();
+        }
+        step += 1;
+        left -= 700;
+        schedule(700, drift);
+      }
+
+      schedule(450, () => {
+        left -= 450;
+        drift();
+      });
     }
 
     function clickControl(control: HTMLElement | null) {
@@ -206,7 +292,7 @@
         finished = true;
         title.textContent = "Tour complete";
         description.textContent = "The explorer is ready to use.";
-        button.textContent = "Replay";
+        labelPlayback("Replay");
         nextButton.disabled = true;
         refreshOverlays();
         return;
@@ -255,7 +341,7 @@
                 schedule(650, () => {
                   moveTo("#swipe-divider", 0.7);
                   setSwipe(70);
-                  schedule(chapter.duration - 2050, advance);
+                  guidePointer(chapter.duration - 2050, advance);
                 });
               });
             });
@@ -272,10 +358,10 @@
                 );
                 trackViewport();
               }
-              schedule(chapter.duration - 900, advance);
+              guidePointer(chapter.duration - 900, advance);
             });
           } else {
-            schedule(chapter.duration, advance);
+            guidePointer(chapter.duration, advance);
           }
         });
       });
@@ -292,16 +378,16 @@
       if (finished) {
         finished = false;
         index = 0;
-        button.textContent = "Pause";
+        labelPlayback("Pause");
         showChapter();
       } else if (paused) {
         paused = false;
-        button.textContent = "Pause";
+        labelPlayback("Pause");
         nextButton.disabled = false;
         if (nextAction) schedule(remaining, nextAction);
       } else {
         paused = true;
-        button.textContent = "Resume";
+        labelPlayback("Resume");
         nextButton.disabled = true;
         remaining = Math.max(0, deadline - performance.now());
         window.clearTimeout(timeout);
@@ -363,7 +449,7 @@
     gap: 0.25rem;
   }
 
-  .demo-tour span {
+  .demo-tour [data-demo-description] {
     color: var(--muted-foreground);
     font-size: 0.875rem;
   }
@@ -381,7 +467,7 @@
   }
 
   .demo-controls button {
-    min-width: 5.5rem;
+    min-width: 4.5rem;
     min-height: 2.25rem;
     padding: 0.3rem 0.7rem;
     background: var(--secondary);
@@ -402,23 +488,23 @@
     z-index: 6;
     top: 0;
     left: 0;
-    width: 2.75rem;
-    height: 2.75rem;
+    width: 2.5rem;
+    height: 3.125rem;
     pointer-events: none;
     filter: drop-shadow(0 0 1px black) drop-shadow(0 2px 3px black);
     transition: transform 0.48s cubic-bezier(0.2, 0.72, 0.3, 1);
   }
 
-  .demo-pointer span {
+  .demo-pointer span,
+  .demo-pointer svg {
     display: block;
     width: 100%;
     height: 100%;
-    background: var(--foreground);
-    clip-path: polygon(0 0, 0 79%, 20% 58%, 37% 92%, 51% 85%, 33% 50%, 64% 50%);
+    transform-origin: top left;
   }
 
-  .demo-pointer span {
-    transform-origin: top left;
+  .demo-controls span[hidden] {
+    display: none;
   }
 
   @media (prefers-reduced-motion: reduce) {

@@ -242,3 +242,10 @@ as the explorer and can be paused or replayed.
 The demo uses a large animated pointer and a spotlight to follow the active
 control. The cursor activates the displayed controls and clicks Next automatically. Both overlays leave the page interactive. Reduced-motion settings
 disable the pointer animation and smooth scrolling.
+
+For the existing Ubuntu EC2 deployment, run `deploy/ec2-update.sh` through
+Systems Manager with the full published Git revision as its argument. It
+builds the release before switching nginx and the local API to it. For the
+first HTTPS deployment, the DNS A record for `seeyou.earth` must point at the
+instance so Certbot can validate the domain. The script enables certificate
+renewal and redirects domain traffic to HTTPS.

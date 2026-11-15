@@ -1,3 +1,16 @@
+import ChevronLeft from "lucide-solid/icons/chevron-left";
+import ChevronRight from "lucide-solid/icons/chevron-right";
+import Crosshair from "lucide-solid/icons/crosshair";
+import Download from "lucide-solid/icons/download";
+import MapPin from "lucide-solid/icons/map-pin";
+import Minus from "lucide-solid/icons/minus";
+import Pause from "lucide-solid/icons/pause";
+import Pin from "lucide-solid/icons/pin";
+import PinOff from "lucide-solid/icons/pin-off";
+import Play from "lucide-solid/icons/play";
+import Plus from "lucide-solid/icons/plus";
+import Search from "lucide-solid/icons/search";
+import Split from "lucide-solid/icons/split";
 import {
   createEffect,
   createResource,
@@ -410,7 +423,7 @@ export default function SkyExplorer(props: { demo?: boolean }) {
             )}
           </For>
           <button type="submit" disabled={!ready()}>
-            Search archive
+            <Search aria-hidden="true" /> Search archive
           </button>
         </form>
         <Show when={selection()}>
@@ -464,14 +477,14 @@ export default function SkyExplorer(props: { demo?: boolean }) {
               disabled={comparing()}
               onClick={() => setMarkers(!markers())}
             >
-              Markers
+              <MapPin aria-hidden="true" /> Markers
             </button>
             <button
               type="button"
               aria-pressed={comparing()}
               onClick={toggleComparison}
             >
-              Swipe compare
+              <Split aria-hidden="true" /> Swipe compare
             </button>
           </div>
         </div>
@@ -559,14 +572,14 @@ export default function SkyExplorer(props: { demo?: boolean }) {
               disabled={zoom() === 1}
               onClick={() => changeZoom(zoom() / 2)}
             >
-              −
+              <Minus aria-hidden="true" />
             </button>
             <button
               type="button"
               aria-label="Reset zoom"
               onClick={() => changeZoom(1)}
             >
-              {zoom()}×
+              <Crosshair aria-hidden="true" /> {zoom()}×
             </button>
             <button
               type="button"
@@ -574,13 +587,18 @@ export default function SkyExplorer(props: { demo?: boolean }) {
               disabled={zoom() === 4}
               onClick={() => changeZoom(zoom() * 2)}
             >
-              +
+              <Plus aria-hidden="true" />
             </button>
             <button
               type="button"
               aria-pressed={Boolean(pinnedPixel())}
               onClick={togglePin}
             >
+              {pinnedPixel() ? (
+                <PinOff aria-hidden="true" />
+              ) : (
+                <Pin aria-hidden="true" />
+              )}
               {pinnedPixel() ? "Unpin" : "Pin position"}
             </button>
           </div>
@@ -709,7 +727,7 @@ export default function SkyExplorer(props: { demo?: boolean }) {
                 step(-1);
               }}
             >
-              Previous
+              <ChevronLeft aria-hidden="true" /> Previous
             </button>
             <button
               type="button"
@@ -718,6 +736,11 @@ export default function SkyExplorer(props: { demo?: boolean }) {
                 setPlaying(!playing());
               }}
             >
+              {playing() ? (
+                <Pause aria-hidden="true" />
+              ) : (
+                <Play aria-hidden="true" />
+              )}
               {playing() ? "Pause" : "Play"}
             </button>
             <button
@@ -727,7 +750,7 @@ export default function SkyExplorer(props: { demo?: boolean }) {
                 step(1);
               }}
             >
-              Next
+              Next <ChevronRight aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -735,7 +758,7 @@ export default function SkyExplorer(props: { demo?: boolean }) {
           <summary>Detected sources ({sources().length})</summary>
           <p class="evidence-export">
             <a href={evidence()} download={`${observation().id}-evidence.json`}>
-              Export detections and provenance
+              <Download aria-hidden="true" /> Export detections and provenance
             </a>
           </p>
           <Show

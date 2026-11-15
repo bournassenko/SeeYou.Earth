@@ -1,3 +1,6 @@
+import Activity from "lucide-solid/icons/activity";
+import Download from "lucide-solid/icons/download";
+import Archive from "lucide-solid/icons/archive";
 import { createSignal, For, onMount, Show } from "solid-js";
 import {
   astrometryHeader,
@@ -165,7 +168,7 @@ export default function AstrometryReview(props: { demo?: boolean }) {
           />
         </div>
         <button type="submit" disabled={!ready() || loadingFile()}>
-          Review track
+          <Activity aria-hidden="true" /> Review track
         </button>
         <button
           class="archived-track"
@@ -173,7 +176,7 @@ export default function AstrometryReview(props: { demo?: boolean }) {
           disabled={!ready() || loadingFile()}
           onClick={loadArchivedTrack}
         >
-          Try archived track
+          <Archive aria-hidden="true" /> Try archived track
         </button>
         <Show when={error()}>
           <p role="alert" class="field-error">
@@ -253,7 +256,7 @@ export default function AstrometryReview(props: { demo?: boolean }) {
               are needed to assess the object's identity.
             </p>
             <a href={report(review)} download="astrometry-review.json">
-              Export evidence
+              <Download aria-hidden="true" /> Export evidence
             </a>
           </div>
         )}
