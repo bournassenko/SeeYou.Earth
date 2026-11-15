@@ -71,12 +71,21 @@ export default function SkyExplorer() {
   const [ready, setReady] = createSignal(false);
   const [index, setIndex] = createSignal(0);
   const [playing, setPlaying] = createSignal(false);
+  const [markers, setMarkers] = createSignal(true);
+  const [selectedSource, setSelectedSource] = createSignal<number>();
+  const [comparing, setComparing] = createSignal(false);
+  const [divider, setDivider] = createSignal(50);
+  const reference = observations[0]!;
   const [pixel, setPixel] = createSignal<Pixel>();
   const observation = () => observations[index()]!;
   const sources = () =>
     detections[observation().name as keyof typeof detections];
   const matches = () =>
     gaiaMatches[observation().name as keyof typeof gaiaMatches];
+  const inspected = () => {
+    const selected = selectedSource();
+    return selected === undefined ? undefined : sources()[selected];
+  };
   const evidence = () => {
     const { id, date, detector, source, wavelength, bandwidth } = observation();
     return `data:application/json;charset=utf-8,${encodeURIComponent(
@@ -123,12 +132,35 @@ export default function SkyExplorer() {
       : undefined;
   };
 
-  function step(direction: number) {
-    setIndex(
-      (current) =>
-        (current + direction + observations.length) % observations.length,
-    );
+  function showObservation(next: number) {
+    setIndex(next);
     setPixel(undefined);
+    setSelectedSource(undefined);
+    if (next === 0) setComparing(false);
+  }
+
+  function step(direction: number) {
+    showObservation(
+      (index() + direction + observations.length) % observations.length,
+    );
+  }
+
+  function toggleComparison() {
+    setPlaying(false);
+    if (comparing()) {
+      setComparing(false);
+    } else {
+      if (index() === 0) showObservation(1);
+      setDivider(50);
+      setComparing(true);
+    }
+  }
+
+  function inspectSource(source: number) {
+    setPlaying(false);
+    setComparing(false);
+    setMarkers(true);
+    setSelectedSource((current) => (current === source ? undefined : source));
   }
 
   createEffect(() => {
@@ -284,19 +316,104 @@ export default function SkyExplorer() {
         </Show>
       </div>
       <section class="viewer" aria-labelledby="viewer-title">
-        <h3 id="viewer-title">Pinwheel Galaxy · M101</h3>
+        <div class="viewer-header">
+          <h3 id="viewer-title">Pinwheel Galaxy · M101</h3>
+          <div class="viewer-tools">
+            <button
+              type="button"
+              aria-pressed={markers()}
+              disabled={comparing()}
+              onClick={() => setMarkers(!markers())}
+            >
+              Markers
+            </button>
+            <button
+              type="button"
+              aria-pressed={comparing()}
+              onClick={toggleComparison}
+            >
+              Swipe compare
+            </button>
+          </div>
+        </div>
         <figure>
-          <img
-            src={`/observations/${observation().name}.png`}
-            width={observation().width}
-            height={observation().height}
-            alt="Grayscale SPHEREx infrared cutout of the Pinwheel Galaxy and surrounding sources"
-            tabindex="0"
-            aria-describedby="pixel-position"
-            onPointerMove={readPointer}
-            onPointerLeave={() => setPixel(undefined)}
-            onKeyDown={readKeyboard}
-          />
+          <div class="sky-image">
+            <img
+              src={`/observations/${observation().name}.png`}
+              width={observation().width}
+              height={observation().height}
+              alt="Grayscale SPHEREx infrared cutout of the Pinwheel Galaxy and surrounding sources"
+              tabindex="0"
+              aria-describedby="pixel-position"
+              onPointerMove={readPointer}
+              onPointerLeave={() => setPixel(undefined)}
+              onKeyDown={readKeyboard}
+            />
+            <Show when={comparing()}>
+              <img
+                class="comparison-image"
+                src={`/observations/${reference.name}.png`}
+                width={reference.width}
+                height={reference.height}
+                alt=""
+                style={{ "clip-path": `inset(0 ${100 - divider()}% 0 0)` }}
+              />
+              <span
+                class="comparison-divider"
+                aria-hidden="true"
+                style={{ left: `${divider()}%` }}
+              />
+            </Show>
+            <Show when={markers() && !comparing()}>
+              <For each={sources()}>
+                {(source, i) => (
+                  <Show when={source.display} keyed>
+                    {(position) => (
+                      <button
+                        class="source-marker"
+                        type="button"
+                        aria-label={`Inspect source ${i() + 1}`}
+                        aria-pressed={selectedSource() === i()}
+                        style={{
+                          left: `${position.x * 100}%`,
+                          top: `${position.y * 100}%`,
+                        }}
+                        onClick={() => inspectSource(i())}
+                      >
+                        <span>{i() + 1}</span>
+                      </button>
+                    )}
+                  </Show>
+                )}
+              </For>
+            </Show>
+          </div>
+          <Show when={comparing()}>
+            <div class="swipe-control">
+              <label for="swipe-divider">Comparison divider</label>
+              <input
+                id="swipe-divider"
+                type="range"
+                min="0"
+                max="100"
+                value={divider()}
+                onInput={(event) =>
+                  setDivider(Number(event.currentTarget.value))
+                }
+              />
+              <div class="comparison-labels">
+                <span>
+                  {reference.date.slice(0, 10)} ·{" "}
+                  {reference.wavelength.toFixed(3)} µm
+                </span>
+                <span>
+                  {observation().date.slice(0, 10)} ·{" "}
+                  {observation().wavelength.toFixed(3)} µm
+                </span>
+              </div>
+              <small>Both wavelength and observation time differ.</small>
+            </div>
+          </Show>
           <figcaption>
             <a href={observation().source}>SPHEREx DR1 · IRSA</a>
             <span>
@@ -321,6 +438,24 @@ export default function SkyExplorer() {
             }
           </Show>
         </p>
+        <Show when={inspected()} keyed>
+          {(source) => (
+            <section
+              aria-label="Source inspection"
+              class="source-inspection"
+              aria-live="polite"
+            >
+              <strong>Source {(selectedSource() ?? 0) + 1}</strong>
+              <span>
+                RA {source.ra.toFixed(5)}° · Dec {source.dec.toFixed(5)}°
+              </span>
+              <span>
+                Peak SNR {source.peakSnr.toFixed(1)} ·{" "}
+                {matches()[selectedSource() ?? 0].length} nearby Gaia entries
+              </span>
+            </section>
+          )}
+        </Show>
         <div class="timeline">
           <label for="observation">Observation (UTC)</label>
           <select
@@ -328,8 +463,7 @@ export default function SkyExplorer() {
             value={index()}
             onChange={(event) => {
               setPlaying(false);
-              setPixel(undefined);
-              setIndex(Number(event.currentTarget.value));
+              showObservation(Number(event.currentTarget.value));
             }}
           >
             <For each={observations}>
@@ -350,7 +484,13 @@ export default function SkyExplorer() {
             >
               Previous
             </button>
-            <button type="button" onClick={() => setPlaying(!playing())}>
+            <button
+              type="button"
+              onClick={() => {
+                setComparing(false);
+                setPlaying(!playing());
+              }}
+            >
               {playing() ? "Pause" : "Play"}
             </button>
             <button
@@ -385,6 +525,7 @@ export default function SkyExplorer() {
                 <caption>Experimental single-exposure detections</caption>
                 <thead>
                   <tr>
+                    <th scope="col">Source</th>
                     <th scope="col">RA</th>
                     <th scope="col">Dec</th>
                     <th scope="col">Peak SNR</th>
@@ -394,7 +535,21 @@ export default function SkyExplorer() {
                 <tbody>
                   <For each={sources()}>
                     {(source, i) => (
-                      <tr>
+                      <tr
+                        classList={{
+                          "source-selected": selectedSource() === i(),
+                        }}
+                      >
+                        <td>
+                          <button
+                            class="source-row-button"
+                            type="button"
+                            aria-pressed={selectedSource() === i()}
+                            onClick={() => inspectSource(i())}
+                          >
+                            {i() + 1}
+                          </button>
+                        </td>
                         <td>{source.ra.toFixed(5)}°</td>
                         <td>{source.dec.toFixed(5)}°</td>
                         <td>{source.peakSnr.toFixed(1)}</td>

@@ -178,3 +178,10 @@ the API responds at `/api/health`.
 The UI uses the shadcn Nova neutral tokens and Inter typography from preset
 `b0` with native HTML and SolidJS. Source reports export the observation,
 coordinate frame, spectral metadata and nearby catalog entries for review.
+
+The SPHEREx viewer can overlay detections on the aligned reference grid. Click
+a marker or its source number in the table to inspect the measured position,
+peak SNR and count of nearby Gaia entries. The detector projects centroids into
+the display grid using the reference WCS and leaves off-frame centroids
+unmarked. Swipe comparison uses the same grid and shows both wavelengths
+alongside the observation dates.

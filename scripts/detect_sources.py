@@ -1,6 +1,7 @@
 import json
 
 import numpy as np
+from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.stats import sigma_clipped_stats
 from astropy.wcs import WCS
@@ -61,11 +62,27 @@ def detect(observation):
 
 
 def main():
+    reference_name = next(iter(OBSERVATIONS))
+    with fits.open(RAW / f"{reference_name}.fits") as reference:
+        image = reference["IMAGE"]
+        height, width = image.data.shape
+        display_wcs = WCS(image.header, fobj=reference).celestial
+
     results = {}
     for name in OBSERVATIONS:
         with fits.open(RAW / f"{name}.fits") as observation:
             observation.verify("exception")
-            results[name] = detect(observation)
+            sources = detect(observation)
+        for source in sources:
+            sky = SkyCoord(source["ra"], source["dec"], unit="deg", frame="icrs")
+            x, y = display_wcs.world_to_pixel(sky)
+            display_x, display_y = float(x) + 0.5, height - 0.5 - float(y)
+            source["display"] = (
+                {"x": display_x / width, "y": display_y / height}
+                if 0 <= display_x < width and 0 <= display_y < height
+                else None
+            )
+        results[name] = sources
     (ROOT / "src/detections.json").write_text(
         json.dumps(results, indent=2, allow_nan=False) + "\n", encoding="utf-8"
     )
