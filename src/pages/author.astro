@@ -4,9 +4,10 @@ import ExplorerPage from "../layouts/ExplorerPage.astro";
 ---
 
 <ExplorerPage page="author">
-  <section class="author-card" aria-labelledby="author-title">
+  <section class="author-card" aria-labelledby="author-title" data-nosnippet>
     <h2 id="author-title">Made by Grégory Bournassenko</h2>
-    <a href="https://www.linkedin.com/in/bournassenko/">
+    <p>for the NASA Space Apps Challenge (November 2026).</p>
+    <a href="https://www.linkedin.com/in/bournassenko/" rel="nofollow">
       LinkedIn <ArrowUpRight aria-hidden="true" />
     </a>
   </section>
@@ -23,6 +24,10 @@ import ExplorerPage from "../layouts/ExplorerPage.astro";
     background: var(--card);
     color: var(--card-foreground);
     box-shadow: var(--luma-elevation);
+  }
+
+  p {
+    margin: 0;
   }
 
   a {

@@ -69,6 +69,8 @@ const chapters = [
     let pendingFrame = 0;
     let timeout: number | undefined;
     let finished = false;
+    let cursor: { x: number; y: number } | undefined;
+    let pointerFrame = 0;
 
     function wait(delay: number) {
       return new Promise<void>((resolve) => {
@@ -103,25 +105,96 @@ const chapters = [
         pendingFrame = window.requestAnimationFrame(refreshOverlays);
     }
 
-    function moveTo(target: Element, position = 0.5) {
+    function center(target: Element) {
       const bounds = target.getBoundingClientRect();
-      const x = bounds.left + bounds.width * position;
-      const y = bounds.top + bounds.height / 2;
-      pointer.hidden = x < 0 || y < 0 || x >= innerWidth || y >= innerHeight;
-      if (!pointer.hidden)
-        pointer.style.transform = `translate(${x}px, ${y}px)`;
+      return {
+        x: bounds.left + bounds.width / 2,
+        y: bounds.top + bounds.height / 2,
+      };
+    }
+
+    function placePointer(point: { x: number; y: number }) {
+      cursor = point;
+      pointer.hidden =
+        point.x < 0 ||
+        point.y < 0 ||
+        point.x >= innerWidth ||
+        point.y >= innerHeight;
+      pointer.style.transform = `translate(${point.x}px, ${point.y}px)`;
+    }
+
+    async function glide(
+      point: { x: number; y: number },
+      update?: (fraction: number) => void,
+    ) {
+      const from = cursor;
+      if (!from || reducedMotion.matches) {
+        placePointer(point);
+        update?.(1);
+        return;
+      }
+      const dx = point.x - from.x;
+      const dy = point.y - from.y;
+      const distance = Math.hypot(dx, dy);
+      if (distance < 2) {
+        placePointer(point);
+        update?.(1);
+        return;
+      }
+
+      const duration = Math.min(680, 180 + distance * 0.65);
+      const bend = update ? 0 : Math.min(28, distance * 0.1);
+      const started = performance.now();
+      await new Promise<void>((resolve) => {
+        function tick(now: number) {
+          const time = Math.min(1, (now - started) / duration);
+          const fraction = time * time * (3 - 2 * time);
+          const arc = Math.sin(Math.PI * fraction) * bend;
+          placePointer({
+            x: from!.x + dx * fraction - (dy / distance) * arc,
+            y: from!.y + dy * fraction + (dx / distance) * arc,
+          });
+          update?.(fraction);
+          if (time < 1) pointerFrame = requestAnimationFrame(tick);
+          else resolve();
+        }
+
+        pointerFrame = requestAnimationFrame(tick);
+      });
     }
 
     async function pointAt(target: HTMLElement, region: Element = target) {
       focus = region;
-      target.scrollIntoView({
-        block: "center",
-        behavior: reducedMotion.matches ? "instant" : "smooth",
-      });
+      const menu = target.closest<HTMLElement>(".select-menu");
+      if (menu) {
+        await wait(50);
+        const area = menu.getBoundingClientRect();
+        const item = target.getBoundingClientRect();
+        if (item.top < area.top || item.bottom > area.bottom) {
+          menu.scrollTop +=
+            item.top - area.top - (area.height - item.height) / 2;
+        }
+      } else {
+        target.scrollIntoView({
+          block: "center",
+          behavior: reducedMotion.matches ? "instant" : "smooth",
+        });
+      }
       trackViewport();
-      await wait(reducedMotion.matches ? 40 : 360);
-      moveTo(target);
-      await wait(reducedMotion.matches ? 40 : 490);
+      if (!reducedMotion.matches) {
+        let previous = center(target);
+        let settled = 0;
+        for (let attempt = 0; attempt < 15 && settled < 2; attempt++) {
+          await wait(45);
+          const next = center(target);
+          settled =
+            Math.hypot(next.x - previous.x, next.y - previous.y) < 1
+              ? settled + 1
+              : 0;
+          previous = next;
+        }
+      }
+      await glide(center(target));
     }
 
     async function find<T extends HTMLElement = HTMLElement>(selector: string) {
@@ -140,6 +213,8 @@ const chapters = [
         target,
         region ? (document.querySelector(region) ?? target) : target,
       );
+      const click = center(target);
+      placePointer(click);
       if (!pointer.hidden && !reducedMotion.matches) {
         ripple.style.transform = pointer.style.transform;
         for (const [index, wave] of waves.entries()) {
@@ -168,10 +243,12 @@ const chapters = [
         cancelable: true,
         pointerType: "mouse",
         button: 0,
+        clientX: click.x,
+        clientY: click.y,
       };
       target.dispatchEvent(new PointerEvent("pointerdown", event));
       target.dispatchEvent(new PointerEvent("pointerup", event));
-      target.click();
+      target.dispatchEvent(new PointerEvent("click", event));
     }
 
     async function selectOption(trigger: string, value: string) {
@@ -191,6 +268,26 @@ const chapters = [
     function setRange(input: HTMLInputElement, value: number) {
       input.value = String(value);
       input.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    async function dragRange(
+      input: HTMLInputElement,
+      value: number,
+      track: Element = input,
+    ) {
+      const min = Number(input.min);
+      const span = Number(input.max) - min;
+      const bounds = track.getBoundingClientRect();
+      const current = input.valueAsNumber;
+      const pointAtValue = (position: number) => ({
+        x: bounds.left + bounds.width * ((position - min) / span),
+        y: center(input).y,
+      });
+      await glide(pointAtValue(current));
+      await glide(pointAtValue(value), (progress) => {
+        setRange(input, current + (value - current) * progress);
+      });
+      setRange(input, value);
     }
 
     const actions: Record<string, () => Promise<void>> = {
@@ -220,10 +317,7 @@ const chapters = [
           `${archive} .playback-speed input`,
         );
         await pointAt(speed);
-        const portion =
-          (4 - Number(speed.min)) / (Number(speed.max) - Number(speed.min));
-        moveTo(speed, portion);
-        setRange(speed, 4);
+        await dragRange(speed, 4);
         await press(playback, archive);
         await wait(1200);
         await press(playback, archive);
@@ -232,15 +326,11 @@ const chapters = [
         await press('[data-demo-control="swipe"]', archive);
         const divider = await find<HTMLInputElement>("#archive-divider");
         await pointAt(divider, divider.closest(".archive-image") ?? divider);
-        moveTo(divider, 0.72);
-        if (reducedMotion.matches) {
-          setRange(divider, 72);
-          return;
-        }
-        for (const value of [54, 58, 62, 66, 70, 72]) {
-          setRange(divider, value);
-          await wait(70);
-        }
+        await dragRange(
+          divider,
+          72,
+          divider.closest(".archive-image") ?? divider,
+        );
       },
       async report() {
         await press(
@@ -307,6 +397,7 @@ const chapters = [
       ready.disconnect();
       window.clearTimeout(timeout);
       window.cancelAnimationFrame(pendingFrame);
+      window.cancelAnimationFrame(pointerFrame);
       window.removeEventListener("scroll", trackViewport, true);
       window.removeEventListener("resize", trackViewport);
     });
@@ -417,7 +508,6 @@ const chapters = [
     height: 3.125rem;
     pointer-events: none;
     filter: drop-shadow(0 0 1px black) drop-shadow(0 2px 3px black);
-    transition: transform 0.48s cubic-bezier(0.2, 0.72, 0.3, 1);
   }
 
   .demo-pointer span,
@@ -430,12 +520,6 @@ const chapters = [
 
   .demo-pointer svg {
     translate: -9.375% -6.25%;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .demo-pointer {
-      transition: none;
-    }
   }
 
   :global(body:has(#demo-tour))

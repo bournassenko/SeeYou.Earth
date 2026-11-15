@@ -34,6 +34,9 @@ const current = navigation.find((entry) => entry.id === page);
       name="description"
       content="SeeYou.Earth is an open-source astronomical exploration project."
     />
+    {page === "author" && (
+      <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+    )}
     <script is:inline>
       const colorPreference = window.matchMedia("(prefers-color-scheme: dark)");
       const applyColorPreference = () =>
