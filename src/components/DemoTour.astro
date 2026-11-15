@@ -11,6 +11,11 @@
   </div>
 </div>
 
+<div class="demo-spotlight" aria-hidden="true" hidden></div>
+<div class="demo-pointer" aria-hidden="true" hidden>
+  <span></span>
+</div>
+
 <script>
   const tour = document.querySelector<HTMLElement>("#demo-tour");
 
@@ -21,55 +26,67 @@
     )!;
     const progress = tour.querySelector<HTMLProgressElement>("progress")!;
     const button = tour.querySelector<HTMLButtonElement>("button")!;
-    const explorerSelector = '[data-demo-explorer="ready"]';
-    const reviewSelector = '[data-demo-review="ready"]';
+    const spotlight = document.querySelector<HTMLElement>(".demo-spotlight")!;
+    const pointer = document.querySelector<HTMLElement>(".demo-pointer")!;
+    const explorer = '[data-demo-explorer="ready"]';
+    const review = '[data-demo-review="ready"]';
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
     const chapters = [
       {
         title: "Search the sky",
         description: "Find real SPHEREx observations around M101.",
-        target: ".explorer-controls",
+        focus: ".explorer-controls",
+        control: ".explorer-controls button[type=submit]",
         action: "search",
-        duration: 8500,
+        duration: 7800,
       },
       {
         title: "Inspect a source",
         description:
           "Connect a marker to its measurements and nearby Gaia entries.",
-        target: ".viewer-header",
+        focus: ".viewer",
+        control: ".source-marker",
         action: "sources",
-        duration: 6500,
+        duration: 5600,
       },
       {
         title: "Compare two exposures",
         description:
           "Move the divider across the aligned images. Dates and wavelengths stay visible.",
-        target: ".viewer-header",
+        focus: ".viewer",
+        control: ".viewer-tools button[aria-pressed]:last-child",
         action: "compare",
-        duration: 6500,
+        duration: 6200,
       },
       {
         title: "Read a pixel spectrum",
         description:
           "Pin one position to see brightness and uncertainty across wavelengths.",
-        target: ".pixel-spectrum",
+        focus: ".viewer",
+        control: ".image-controls button[aria-pressed]",
         action: "spectrum",
-        duration: 7500,
+        result: ".pixel-spectrum",
+        duration: 6800,
       },
       {
         title: "Inspect the difference",
         description:
           "See both ZTF exposures and the subtraction on the same grid.",
-        target: ".difference-preview",
-        duration: 6500,
+        focus: ".difference-preview",
+        control: ".difference-preview summary",
+        action: "difference",
+        duration: 5400,
       },
       {
         title: "Review a track",
         description:
           "Test an archived trajectory against a withheld observation, then inspect the evidence.",
-        target: ".astrometry-results",
+        focus: ".astrometry-review",
+        control: ".archived-track",
         action: "review",
-        duration: 8500,
+        result: ".astrometry-results",
+        duration: 7600,
       },
     ];
 
@@ -81,8 +98,10 @@
     let nextAction: (() => void) | undefined;
     let remaining = 0;
     let deadline = 0;
-    let seek: number | undefined;
-    let focusChapter: (() => void) | undefined;
+    let focus: Element | null = null;
+    let cursorTarget: Element | null = null;
+    let cursorOffset = 0.5;
+    let pendingFrame = 0;
 
     function schedule(delay: number, action: () => void) {
       remaining = delay;
@@ -101,6 +120,64 @@
         ?.dispatchEvent(new CustomEvent("seeyou-demo", { detail: action }));
     }
 
+    function refreshOverlays() {
+      pendingFrame = 0;
+      if (focus && !finished) {
+        const bounds = focus.getBoundingClientRect();
+        const left = Math.max(0, bounds.left - 6);
+        const top = Math.max(0, bounds.top - 6);
+        const right = Math.min(innerWidth, bounds.right + 6);
+        const bottom = Math.min(innerHeight, bounds.bottom + 6);
+        spotlight.hidden = right <= left || bottom <= top;
+        if (!spotlight.hidden) {
+          Object.assign(spotlight.style, {
+            left: `${left}px`,
+            top: `${top}px`,
+            width: `${right - left}px`,
+            height: `${bottom - top}px`,
+          });
+        }
+      } else {
+        spotlight.hidden = true;
+      }
+
+      if (finished) {
+        pointer.hidden = true;
+      } else if (cursorTarget) {
+        const bounds = cursorTarget.getBoundingClientRect();
+        const x = bounds.left + bounds.width * cursorOffset;
+        const y = bounds.top + bounds.height / 2;
+        pointer.hidden = x < 0 || y < 0 || x >= innerWidth || y >= innerHeight;
+        if (!pointer.hidden)
+          pointer.style.transform = `translate(${x}px, ${y}px)`;
+      }
+    }
+
+    function trackViewport() {
+      if (!pendingFrame)
+        pendingFrame = window.requestAnimationFrame(refreshOverlays);
+    }
+
+    function moveTo(selector: string, offset = 0.5) {
+      cursorTarget = document.querySelector(selector);
+      cursorOffset = offset;
+      refreshOverlays();
+    }
+
+    function clickEffect() {
+      pointer.classList.remove("demo-click");
+      if (!pointer.hidden && !reducedMotion.matches) {
+        requestAnimationFrame(() => pointer.classList.add("demo-click"));
+      }
+    }
+
+    function scrollTo(target: Element | null, block: ScrollLogicalPosition) {
+      target?.scrollIntoView({
+        block,
+        behavior: reducedMotion.matches ? "instant" : "smooth",
+      });
+    }
+
     function showChapter() {
       const chapter = chapters[index];
       if (!chapter) {
@@ -108,58 +185,76 @@
         title.textContent = "Tour complete";
         description.textContent = "The explorer is ready to use.";
         button.textContent = "Replay";
+        refreshOverlays();
         return;
       }
 
       title.textContent = chapter.title;
       description.textContent = chapter.description;
       progress.value = index + 1;
-      if (chapter.action) {
-        dispatch(
-          chapter.action === "review" ? reviewSelector : explorerSelector,
-          chapter.action,
-        );
-      }
-
-      const started = performance.now();
-      function findChapter() {
-        const target = document.querySelector(chapter.target);
-        if (target || performance.now() - started > 2300) {
-          const fallback =
-            chapter.action === "spectrum"
-              ? document.querySelector("#pixel-position")
-              : null;
-          (target ?? fallback)?.scrollIntoView({
-            block: "start",
-            behavior: window.matchMedia("(prefers-reduced-motion: reduce)")
-              .matches
-              ? "instant"
-              : "smooth",
-          });
-          seek = undefined;
-          focusChapter = undefined;
-        } else {
-          seek = window.setTimeout(findChapter, 80);
-        }
-      }
-      focusChapter = findChapter;
-      findChapter();
+      focus = document.querySelector(chapter.focus);
+      cursorTarget = null;
+      const control = document.querySelector(chapter.control);
+      scrollTo(control ?? focus, "center");
+      trackViewport();
 
       const advance = () => {
-        window.clearTimeout(seek);
-        focusChapter = undefined;
         index += 1;
         showChapter();
       };
 
-      if (chapter.action === "compare") {
-        schedule(1800, () => {
-          dispatch(explorerSelector, "reveal");
-          schedule(chapter.duration - 1800, advance);
+      schedule(reducedMotion.matches ? 60 : 460, () => {
+        moveTo(chapter.control);
+        schedule(reducedMotion.matches ? 60 : 540, () => {
+          clickEffect();
+          if (chapter.action === "difference") {
+            const details = control?.closest("details");
+            if (details) details.open = true;
+          } else {
+            dispatch(
+              chapter.action === "review" ? review : explorer,
+              chapter.action,
+            );
+          }
+          if (chapter.action === "sources")
+            focus = document.querySelector(".sky-window");
+          if (chapter.action === "compare")
+            focus = document.querySelector(".viewer figure");
+          trackViewport();
+
+          if (chapter.action === "compare") {
+            schedule(1050, () => {
+              scrollTo(document.querySelector("#swipe-divider"), "nearest");
+              schedule(350, () => {
+                moveTo("#swipe-divider", 0.35);
+                schedule(650, () => {
+                  clickEffect();
+                  moveTo("#swipe-divider", 0.7);
+                  dispatch(explorer, "reveal");
+                  schedule(chapter.duration - 2050, advance);
+                });
+              });
+            });
+          } else if (chapter.result) {
+            schedule(900, () => {
+              const result = document.querySelector(chapter.result);
+              if (result) {
+                focus = result;
+                scrollTo(result, "center");
+                moveTo(
+                  chapter.action === "spectrum"
+                    ? ".spectrum-sample button"
+                    : ".astrometry-metrics > div:last-child",
+                );
+                trackViewport();
+              }
+              schedule(chapter.duration - 900, advance);
+            });
+          } else {
+            schedule(chapter.duration, advance);
+          }
         });
-      } else {
-        schedule(chapter.duration, advance);
-      }
+      });
     }
 
     button.addEventListener("click", () => {
@@ -172,22 +267,17 @@
         paused = false;
         button.textContent = "Pause";
         if (nextAction) schedule(remaining, nextAction);
-        focusChapter?.();
       } else {
         paused = true;
         button.textContent = "Resume";
         remaining = Math.max(0, deadline - performance.now());
         window.clearTimeout(timeout);
-        window.clearTimeout(seek);
       }
     });
 
     const ready = new MutationObserver(start);
     function start() {
-      if (
-        !document.querySelector(explorerSelector) ||
-        !document.querySelector(reviewSelector)
-      )
+      if (!document.querySelector(explorer) || !document.querySelector(review))
         return;
       ready.disconnect();
       button.disabled = false;
@@ -198,18 +288,21 @@
       attributes: true,
       attributeFilter: ["data-demo-explorer", "data-demo-review"],
     });
+    window.addEventListener("scroll", trackViewport, {
+      passive: true,
+      capture: true,
+    });
+    window.addEventListener("resize", trackViewport, { passive: true });
     start();
 
-    window.addEventListener(
-      "pagehide",
-      (event) => {
-        if (event.persisted) return;
-        ready.disconnect();
-        window.clearTimeout(timeout);
-        window.clearTimeout(seek);
-      },
-      { once: true },
-    );
+    window.addEventListener("pagehide", (event) => {
+      if (event.persisted) return;
+      ready.disconnect();
+      window.clearTimeout(timeout);
+      window.cancelAnimationFrame(pendingFrame);
+      window.removeEventListener("scroll", trackViewport, true);
+      window.removeEventListener("resize", trackViewport);
+    });
   }
 </script>
 
@@ -262,18 +355,79 @@
     color: var(--secondary-foreground);
   }
 
+  .demo-spotlight {
+    position: fixed;
+    z-index: 4;
+    pointer-events: none;
+    border: 1px solid oklch(1 0 0 / 25%);
+    border-radius: var(--radius);
+    box-shadow: 0 0 0 200vmax oklch(0 0 0 / 64%);
+  }
+
+  .demo-pointer {
+    position: fixed;
+    z-index: 6;
+    top: 0;
+    left: 0;
+    width: 2.75rem;
+    height: 2.75rem;
+    pointer-events: none;
+    filter: drop-shadow(0 0 1px black) drop-shadow(0 2px 3px black);
+    transition: transform 0.48s cubic-bezier(0.2, 0.72, 0.3, 1);
+  }
+
+  .demo-pointer span {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: var(--foreground);
+    clip-path: polygon(0 0, 0 79%, 20% 58%, 37% 92%, 51% 85%, 33% 50%, 64% 50%);
+  }
+
+  .demo-pointer::before {
+    position: absolute;
+    top: -0.75rem;
+    left: -0.75rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 2px solid var(--foreground);
+    border-radius: 50%;
+    opacity: 0;
+    content: "";
+  }
+
+  .demo-pointer.demo-click::before {
+    animation: demo-click-ring 0.65s ease-out;
+  }
+
+  @keyframes demo-click-ring {
+    from {
+      opacity: 0.95;
+      transform: scale(0.35);
+    }
+    to {
+      opacity: 0;
+      transform: scale(1.55);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .demo-pointer {
+      transition: none;
+    }
+  }
+
   :global(body:has(#demo-tour))
     :global(
       :is(
         .explorer-controls,
-        .source-inspection,
-        .viewer-header,
+        .viewer,
         .pixel-spectrum,
-        #pixel-position,
         .difference-preview,
+        .astrometry-review,
         .astrometry-results
       )
     ) {
-    scroll-margin-top: 8rem;
+    scroll-margin-top: 7rem;
   }
 </style>

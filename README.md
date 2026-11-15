@@ -238,3 +238,7 @@ Open `/demo` for a hands-free tour of archive search, source inspection,
 swipe comparison, the pinned-pixel spectrum, image subtraction and the
 archived astrometry review. The tour uses the same controls and observations
 as the explorer and can be paused or replayed.
+
+The demo uses a large animated pointer and a spotlight to follow the active
+control. Both overlays leave the page interactive. Reduced-motion settings
+disable the pointer animation and smooth scrolling.
