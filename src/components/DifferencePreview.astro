@@ -1,0 +1,33 @@
+---
+import comparison from "../ztfDifference.json";
+---
+
+<section class="difference-preview" aria-labelledby="difference-title">
+  <h2 id="difference-title">Image difference</h2>
+  <figure>
+    <img
+      src="/observations/ztf-r-difference.png"
+      width="50"
+      height="50"
+      alt="ZTF r-band residual image. Light pixels are brighter in the later exposure, dark pixels are fainter, and missing coverage is transparent."
+    />
+    <figcaption>
+      <a href="https://irsa.ipac.caltech.edu/Missions/ztf.html">ZTF · r band</a>
+      <span>11 Apr − 8 Apr 2018</span>
+    </figcaption>
+  </figure>
+  <p>{comparison.validPixels} pixels in common · Experimental</p>
+</section>
+
+<style>
+  .difference-preview {
+    margin-top: 1rem;
+    padding: clamp(1rem, 3vw, 1.5rem);
+    border: 1px solid #27272a;
+    border-radius: 0.75rem;
+  }
+
+  .difference-preview figure {
+    max-width: 28rem;
+  }
+</style>

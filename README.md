@@ -87,3 +87,37 @@ The detector works in native FITS pixels. It subtracts the modeled zodiacal fore
 ## Experimental Gaia DR3 cross-match
 
 Run `python scripts/match_gaia.py` after source detection. It queries the ESA Gaia Archive for an ICRS cone around M101 and lists every nearby entry within a 3 arcsecond screening radius plus a conservative Gaia positional-error margin. Where available, proper motions shift the Gaia coordinates to the SPHEREx exposure epoch. Without a measured proper motion the interface labels the entry as a reference-epoch position. This positional search ignores parallax and radial motion, does not resolve blends, and covers only the queried Gaia cone. A nearby entry is a possible association, and an empty result provides no evidence of a discovery.
+
+## Experimental ZTF difference
+
+This example uses two ZTF r-band science exposures from the same field, CCD and
+quadrant, and their associated quality maps. It is a separate dataset from
+the SPHEREx timeline. Download the four FITS files from IRSA and generate the
+preview with the same Python dependencies as source detection.
+
+```sh
+mkdir -p data/raw/ztf
+for exposure in 20180408381620 20180411467847; do
+  year=$(printf '%s' "$exposure" | cut -c1-4)
+  month_day=$(printf '%s' "$exposure" | cut -c5-8)
+  fraction=$(printf '%s' "$exposure" | cut -c9-14)
+  for product in sciimg mskimg; do
+    base="https://irsa.ipac.caltech.edu/ibe/data/ztf/products/sci/$year/$month_day/$fraction"
+    name="ztf_${exposure}_000535_zr_c11_o_q3_${product}.fits"
+    curl --fail --location --retry 2 "$base/$name?center=255.57691,12.28378&size=50arcsec&gzip=false" \
+      --output "data/raw/ztf/$exposure-$product.fits" || exit 1
+  done
+done
+python scripts/compare_ztf.py
+```
+
+The comparison masks flagged pixels, removes a sigma-clipped background,
+normalizes the exposure zeropoints, approximates PSF matching by Gaussian
+smoothing to the poorer seeing, and reprojects the earlier frame onto the
+later WCS with bilinear interpolation. It then subtracts earlier from later.
+The noise diagnostic uses the background RMS and shot noise estimated from the
+gain, with a conservative upper-bound treatment of correlations from resampling
+within each exposure. It does not account for zeropoint or PSF-model uncertainty.
+The PNG clips residuals at symmetric 99th-percentile limits and leaves invalid
+pixels transparent. The residual can include calibration and PSF mismatch and
+is not a detection significance map.
