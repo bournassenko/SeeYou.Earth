@@ -1,0 +1,76 @@
+{
+  "m101-dr1-d2": [
+    [
+      {
+        "sourceId": "1609275562358762368",
+        "separation": 0.2322,
+        "propagated": true
+      }
+    ],
+    [
+      {
+        "sourceId": "1609275081322912256",
+        "separation": 1.6057,
+        "propagated": true
+      },
+      {
+        "sourceId": "1609275081322912000",
+        "separation": 2.4006,
+        "propagated": false
+      }
+    ],
+    []
+  ],
+  "m101-0650_3D2": [
+    [
+      {
+        "sourceId": "1609275081322912256",
+        "separation": 0.5607,
+        "propagated": true
+      },
+      {
+        "sourceId": "1609275081322912000",
+        "separation": 1.2195,
+        "propagated": false
+      },
+      {
+        "sourceId": "1609275081320939136",
+        "separation": 1.9895,
+        "propagated": true
+      }
+    ],
+    [
+      {
+        "sourceId": "1609275562358762368",
+        "separation": 0.7977,
+        "propagated": true
+      }
+    ],
+    [
+      {
+        "sourceId": "1609274565926351104",
+        "separation": 0.3577,
+        "propagated": true
+      }
+    ]
+  ],
+  "m101-0223_1D2": [
+    [
+      {
+        "sourceId": "1609275081322912256",
+        "separation": 0.4777,
+        "propagated": true
+      },
+      {
+        "sourceId": "1609275081322912000",
+        "separation": 1.4107,
+        "propagated": false
+      },
+      {
+        "sourceId": "1609275081320939136",
+        "separation": 2.5045,
+        "propagated": true
+      }
+    ]
+  ]
+}

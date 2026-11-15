@@ -9,6 +9,7 @@ import {
 } from "solid-js";
 
 import detections from "../detections.json";
+import gaiaMatches from "../gaiaMatches.json";
 import observations from "../observations.json";
 
 type Pixel = { x: number; y: number };
@@ -51,6 +52,8 @@ export default function SkyExplorer() {
   const observation = () => observations[index()]!;
   const sources = () =>
     detections[observation().name as keyof typeof detections];
+  const matches = () =>
+    gaiaMatches[observation().name as keyof typeof gaiaMatches];
   const [grid] = createResource(
     ready,
     async (): Promise<CoordinateGrid | null> => {
@@ -275,27 +278,55 @@ export default function SkyExplorer() {
             when={sources().length > 0}
             fallback={<p>No sources passed the detection threshold.</p>}
           >
-            <table>
-              <caption>Experimental single-exposure detections</caption>
-              <thead>
-                <tr>
-                  <th scope="col">RA</th>
-                  <th scope="col">Dec</th>
-                  <th scope="col">Peak SNR</th>
-                </tr>
-              </thead>
-              <tbody>
-                <For each={sources()}>
-                  {(source) => (
-                    <tr>
-                      <td>{source.ra.toFixed(5)}°</td>
-                      <td>{source.dec.toFixed(5)}°</td>
-                      <td>{source.peakSnr.toFixed(1)}</td>
-                    </tr>
-                  )}
-                </For>
-              </tbody>
-            </table>
+            <div
+              class="table-scroll"
+              tabindex="0"
+              role="region"
+              aria-label="Detected sources"
+            >
+              <table>
+                <caption>Experimental single-exposure detections</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">RA</th>
+                    <th scope="col">Dec</th>
+                    <th scope="col">Peak SNR</th>
+                    <th scope="col">Gaia DR3 nearby</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <For each={sources()}>
+                    {(source, i) => (
+                      <tr>
+                        <td>{source.ra.toFixed(5)}°</td>
+                        <td>{source.dec.toFixed(5)}°</td>
+                        <td>{source.peakSnr.toFixed(1)}</td>
+                        <td>
+                          <Show
+                            when={matches()[i()].length}
+                            fallback="No nearby entry"
+                          >
+                            <ul>
+                              <For each={matches()[i()]}>
+                                {(match) => (
+                                  <li>
+                                    {match.sourceId} ·{" "}
+                                    {match.separation.toFixed(2)}″
+                                    {match.propagated
+                                      ? ""
+                                      : " (reference epoch)"}
+                                  </li>
+                                )}
+                              </For>
+                            </ul>
+                          </Show>
+                        </td>
+                      </tr>
+                    )}
+                  </For>
+                </tbody>
+              </table>
+            </div>
           </Show>
         </details>
         <div role="status" class="viewer-status">

@@ -83,3 +83,7 @@ image subtraction.
 Install `photutils==3.1.1` and `scipy==1.18.1` in the same environment as the renderer and run `python scripts/detect_sources.py` after downloading the original FITS files. The results are linked to the observation selected in the viewer.
 
 The detector works in native FITS pixels. It subtracts the modeled zodiacal foreground, excludes all flagged pixels except pixels carrying only the archive's SOURCE bit, masks invalid variances, estimates a sigma-clipped background, and runs DAOFIND with the exposure PSF width from the FITS header. The reported peak SNR divides the background-subtracted peak by the larger of the measured background scatter or the pixel uncertainty. This is a screening statistic. Crowded or extended regions can create false positives, and a detection alone provides no evidence of motion or variability.
+
+## Experimental Gaia DR3 cross-match
+
+Run `python scripts/match_gaia.py` after source detection. It queries the ESA Gaia Archive for an ICRS cone around M101 and lists every nearby entry within a 3 arcsecond screening radius plus a conservative Gaia positional-error margin. Where available, proper motions shift the Gaia coordinates to the SPHEREx exposure epoch. Without a measured proper motion the interface labels the entry as a reference-epoch position. This positional search ignores parallax and radial motion, does not resolve blends, and covers only the queried Gaia cone. A nearby entry is a possible association, and an empty result provides no evidence of a discovery.
