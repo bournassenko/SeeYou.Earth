@@ -6,16 +6,17 @@ SeeYou.Earth is an open-source project to make astronomical observations easier 
 
 - Implemented: an Astro homepage and a SolidJS Sky Explorer form with decimal-degree coordinate validation.
 - Implemented: three aligned SPHEREx observation previews, an observation timeline, and ICRS pixel coordinates.
-- Implemented: live IRSA metadata search by coordinates, with links to the original FITS files.
-- Planned: rendering observations returned by a search.
+- Implemented: live SPHEREx image search and playback by coordinates, with five archived example fields and links to the original FITS cutouts.
 
 ## Local development
 
-Use Node.js 24 and npm.
+Use Node.js 24, npm, and Python 3.12 or newer.
 
 ```sh
 npm ci
-npm run api
+python3 -m venv .venv
+.venv/bin/python -m pip install -r server/requirements.txt
+SPHEREX_PYTHON="$PWD/.venv/bin/python" npm run api
 ```
 
 Run `npm run dev` in another terminal and open the local URL printed by Astro.
@@ -26,6 +27,7 @@ Run `npm run dev` in another terminal and open the local URL printed by Astro.
 npm run format:check
 npm run check
 npm run build
+node scripts/check_spherex_series.mjs
 npm run preview
 ```
 
@@ -33,7 +35,7 @@ The production build is written to `dist/`.
 
 ## M101 observation preview
 
-The viewer displays SPHEREx DR1 Level 2 cutouts from NASA/IPAC IRSA. The coordinate form searches IRSA and links to the original FITS files. The M101 viewer displays bundled previews. The table describes the reference observation.
+The viewer displays SPHEREx DR1 Level 2 cutouts from NASA/IPAC IRSA. M101 is the bundled starting field. The table describes its reference observation.
 
 | Field              | Value                                   |
 | ------------------ | --------------------------------------- |
@@ -165,10 +167,29 @@ Positive recovery on a real moving object remains unverified.
 Run `npm run api` and `npm run dev` in separate terminals. Astro forwards
 `/api` requests to the local Node service on port 4323. Production can serve
 `dist/` with any HTTPS web server that proxies `/api/` to the loopback service.
-The search returns up to five SPHEREx DR1 science products whose footprints
-intersect the requested ICRS circle. Field of view is the circle diameter.
-Results link to the original FITS files. The desktop viewer uses bundled
-observations when running locally.
+Enter ICRS right ascension and declination in decimal degrees and choose a
+square field from 0.02° to 0.4°. The archive is queried for exposures covering
+the center. Up to four exposures per detector are sampled, including early and
+late visits when available. A nearby detector pointing is used as a search
+heuristic and is verified against each cutout's spectral WCS.
+
+The worker uses the FITS celestial WCS to align cutouts onto a north-up
+tangent-plane grid, samples nearest valid detector pixels, and uses a shared
+brightness stretch per playback sequence. Preview pixels are masked when
+quality bits other than SOURCE are set. Each frame reports its detector,
+central wavelength, date, and usable area, and links to the source cutout.
+The default sequence, when available, selects the largest temporal baseline
+from samples on one detector with comparable central wavelengths. The
+all-wavelength sequence is also available. Detector wavelength still varies
+across each exposure. These display previews do not provide calibrated
+difference photometry or demonstrate motion in any individual source.
+
+The example picker uses archived preview sequences for Barnard’s Star,
+Epsilon Indi B, WISE 0855, RW Aurigae, and R Draconis. Use **Search archive**
+to request new images for the displayed field. The preview JSON files can be
+regenerated from the running API using the preset coordinates and
+`/api/observations?mode=series&ra=…&dec=…&fov=…`. Keep original cutout URLs
+in the generated metadata. The desktop app displays bundled M101 images.
 
 ## EC2 preview
 
@@ -181,8 +202,7 @@ outbound access to GitHub, Ubuntu, Node.js and npm during bootstrap, and to the
 IRSA archive during search. The active build is reported at `/version.txt`;
 the API responds at `/api/health`.
 
-The UI uses the shadcn Nova neutral tokens and Inter typography from preset
-`b0` with native HTML and SolidJS. Source reports export the observation,
+The UI uses shadcn neutral tokens, Luma component geometry, and Inter typography with native HTML and SolidJS. Source reports export the observation,
 coordinate frame, spectral metadata and nearby catalog entries for review.
 
 The SPHEREx viewer can overlay detections on the aligned reference grid. Click

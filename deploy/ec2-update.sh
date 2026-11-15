@@ -18,15 +18,28 @@ npm ci --no-audit --no-fund
 npm run build
 test -s dist/index.html
 test -s dist/demo/index.html
+if ! python3 -m venv --help >/dev/null 2>&1 || ! dpkg-query -W -f='${Status}' python3-venv 2>/dev/null | grep -q 'install ok installed'; then
+    apt-get update -o Acquire::Retries=3
+    apt-get install -y --no-install-recommends python3-venv
+fi
 
 install -d "$root/releases/$revision"
 cp -a dist server "$root/releases/$revision/"
+python3 -m venv "$root/releases/$revision/.venv"
+"$root/releases/$revision/.venv/bin/python" -m pip install --disable-pip-version-check -r server/requirements.txt
+"$root/releases/$revision/.venv/bin/python" -c 'from astropy.io import fits; from astropy.wcs import WCS; from PIL import Image'
 printf '%s\n' "$revision" > "$root/releases/$revision/dist/version.txt"
 
 ln -sfn "$root/releases/$revision" "$root/current-next"
 mv -Tf "$root/current-next" "$root/current"
 sed -i "s|$root/server|$root/current/server|g" /etc/systemd/system/seeyou-earth-api.service
-sed -i "s|$root/dist|$root/current/dist|g; s|server_name _;|server_name seeyou.earth;|" /etc/nginx/sites-available/seeyou-earth
+install -d /etc/systemd/system/seeyou-earth-api.service.d
+cat > /etc/systemd/system/seeyou-earth-api.service.d/science.conf <<'UNIT'
+[Service]
+Environment=SPHEREX_PYTHON=/srv/seeyou-earth/current/.venv/bin/python
+Environment=OPENBLAS_NUM_THREADS=1
+UNIT
+sed -i "s|$root/dist|$root/current/dist|g; s|server_name _;|server_name seeyou.earth;|; s|proxy_read_timeout 25s;|proxy_read_timeout 95s;|" /etc/nginx/sites-available/seeyou-earth
 nginx -t
 systemctl daemon-reload
 systemctl restart seeyou-earth-api.service

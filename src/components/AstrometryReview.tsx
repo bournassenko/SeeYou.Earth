@@ -132,6 +132,7 @@ export default function AstrometryReview(props: { demo?: boolean }) {
         constant-motion track.
       </p>
       <form
+        class="review-form"
         onSubmit={(event) => {
           event.preventDefault();
           analyze();
@@ -167,36 +168,40 @@ export default function AstrometryReview(props: { demo?: boolean }) {
             position uncertainty per axis in arcseconds.
           </small>
         </div>
-        <div class="coordinate-field">
-          <label for="astrometry-provenance">
-            Observation IDs or source link
-          </label>
-          <input
-            id="astrometry-provenance"
-            maxlength="1000"
-            value={provenance()}
-            onInput={(event) => {
-              setProvenance(event.currentTarget.value);
-              setAnalysis(undefined);
-            }}
-          />
+        <div class="review-options">
+          <div class="coordinate-field">
+            <label for="astrometry-provenance">
+              Observation IDs or source link
+            </label>
+            <input
+              id="astrometry-provenance"
+              maxlength="1000"
+              value={provenance()}
+              onInput={(event) => {
+                setProvenance(event.currentTarget.value);
+                setAnalysis(undefined);
+              }}
+            />
+          </div>
+          <div class="review-actions">
+            <button type="submit" disabled={!ready() || loadingFile()}>
+              <Activity aria-hidden="true" /> Review track
+            </button>
+            <button
+              class="archived-track"
+              type="button"
+              disabled={!ready() || loadingFile()}
+              onClick={loadArchivedTrack}
+            >
+              <Archive aria-hidden="true" /> Try archived track
+            </button>
+          </div>
+          <Show when={error()}>
+            <p role="alert" class="field-error">
+              {error()}
+            </p>
+          </Show>
         </div>
-        <button type="submit" disabled={!ready() || loadingFile()}>
-          <Activity aria-hidden="true" /> Review track
-        </button>
-        <button
-          class="archived-track"
-          type="button"
-          disabled={!ready() || loadingFile()}
-          onClick={loadArchivedTrack}
-        >
-          <Archive aria-hidden="true" /> Try archived track
-        </button>
-        <Show when={error()}>
-          <p role="alert" class="field-error">
-            {error()}
-          </p>
-        </Show>
       </form>
 
       <Show when={analysis()} keyed>

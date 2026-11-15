@@ -2,7 +2,6 @@
 import Activity from "@lucide/astro/icons/activity";
 import Binoculars from "@lucide/astro/icons/binoculars";
 import CirclePlay from "@lucide/astro/icons/circle-play";
-import Crosshair from "@lucide/astro/icons/crosshair";
 import Split from "@lucide/astro/icons/split";
 import AstrometryReview from "../components/AstrometryReview";
 import DemoTour from "../components/DemoTour.astro";
@@ -12,7 +11,19 @@ import "../styles/theme.css";
 import ProjectIntro from "../components/ProjectIntro";
 import SkyExplorer from "../components/SkyExplorer";
 
-const { demo = false } = Astro.props;
+interface Props {
+  page?: "explore" | "compare" | "review" | "demo";
+}
+
+const { page = "explore" } = Astro.props;
+const demo = page === "demo";
+const navigation = [
+  { id: "explore", label: "Explore", href: "/", Icon: Binoculars },
+  { id: "compare", label: "Compare", href: "/compare/", Icon: Split },
+  { id: "review", label: "Review", href: "/review/", Icon: Activity },
+  { id: "demo", label: "Demo", href: "/demo/", Icon: CirclePlay },
+] as const;
+const current = navigation.find((entry) => entry.id === page);
 ---
 
 <!doctype html>
@@ -34,39 +45,34 @@ const { demo = false } = Astro.props;
       applyColorPreference();
       colorPreference.addEventListener("change", applyColorPreference);
     </script>
-    <title>{demo ? "SeeYou.Earth · Demo" : "SeeYou.Earth"}</title>
+    <title>{page === "explore" ? "SeeYou.Earth" : `${current?.label} · SeeYou.Earth`}</title>
   </head>
   <body>
-    <main>
-      <header class="intro">
+    <a class="skip-link" href="#dashboard-content">
+      Skip to content
+    </a>
+    <div class:list={["dashboard", { "dashboard-demo": demo }]}>
+      <header class="sidebar">
         <ProjectIntro />
-        <nav aria-label="Analysis">
-          <a href="#explorer-title">
-            <Binoculars aria-hidden="true" /> Explore
-          </a>
-          <a href="#detected-sources">
-            <Crosshair aria-hidden="true" /> Sources
-          </a>
-          <a href="#difference-title">
-            <Split aria-hidden="true" /> Compare
-          </a>
-          <a href="#astrometry-title">
-            <Activity aria-hidden="true" /> Review
-          </a>
-          <a href={demo ? "/" : "/demo"}>
-            <CirclePlay aria-hidden="true" /> {demo ? "Exit demo" : "Demo"}
-          </a>
+        <nav aria-label="Workspace">
+          {navigation.map(({ id, label, href, Icon }) => (
+            <a href={href} aria-current={page === id ? "page" : undefined}>
+              <Icon aria-hidden="true" /> {label}
+            </a>
+          ))}
         </nav>
       </header>
-      {demo && <DemoTour />}
-      <SkyExplorer client:load demo={demo} />
-      <DifferencePreview />
-      {demo ? (
-        <AstrometryReview client:load demo />
-      ) : (
-        <AstrometryReview client:visible />
-      )}
-    </main>
+      <main id="dashboard-content" tabindex="-1">
+        {demo && <DemoTour />}
+        {(page === "explore" || demo) && (
+          <SkyExplorer client:load demo={demo} />
+        )}
+        {(page === "compare" || demo) && <DifferencePreview />}
+        {(page === "review" || demo) && (
+          <AstrometryReview client:load demo={demo} />
+        )}
+      </main>
+    </div>
   </body>
 </html>
 
@@ -81,12 +87,34 @@ const { demo = false } = Astro.props;
     margin: 0;
   }
 
-  main {
+  .dashboard {
+    --workspace-gap: clamp(0.75rem, 1.6vw, 1.5rem);
+    --control-height: 2.5rem;
+    display: grid;
+    grid-template-columns: 13rem minmax(0, 1fr);
+    min-height: 100vh;
+  }
+
+  .dashboard main {
     overflow-anchor: none;
     box-sizing: border-box;
-    width: min(100%, 76rem);
-    margin: 0 auto;
-    padding: clamp(1rem, 3vw, 2.5rem) clamp(1rem, 5vw, 4rem);
+    width: min(100%, 94rem);
+    margin-inline: auto;
+    padding: clamp(1rem, 2vw, 2rem);
+  }
+
+  .skip-link {
+    position: fixed;
+    z-index: 10;
+    inset: 0.5rem auto auto 0.5rem;
+    padding: 0.6rem 1rem;
+    border-radius: var(--luma-radius-inset);
+    background: var(--card);
+    transform: translateY(-200%);
+  }
+
+  .skip-link:focus {
+    transform: none;
   }
 
   h1,
@@ -107,38 +135,51 @@ const { demo = false } = Astro.props;
     line-height: 1.6;
   }
 
-  .intro {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
+  .sidebar {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    box-sizing: border-box;
+    min-height: 100dvh;
+    padding: 1.5rem 1rem;
+    border-inline-end: 1px solid var(--sidebar-border);
+    background: var(--sidebar);
+    color: var(--sidebar-foreground);
   }
 
-  .intro nav {
-    display: flex;
-    flex-wrap: wrap;
+  .sidebar h1 {
+    padding-inline: 0.65rem;
+    font-size: 1.25rem;
+  }
+
+  .sidebar nav {
+    display: grid;
     gap: 0.25rem;
-    padding: 0.25rem;
-    border-radius: var(--luma-radius-surface);
-    background: var(--secondary);
+    margin-top: 1.75rem;
   }
 
-  .intro nav a {
-    display: inline-flex;
+  .sidebar nav a {
+    display: flex;
     align-items: center;
-    min-height: 2.25rem;
+    justify-content: flex-start;
+    gap: 0.45rem;
+    min-height: 2.5rem;
     padding-inline: 0.75rem;
-    color: var(--muted-foreground);
     border-radius: var(--luma-radius-surface);
+    color: var(--muted-foreground);
     font-size: 0.875rem;
+    font-weight: 550;
     text-decoration: none;
   }
 
-  .intro nav a:hover {
-    color: var(--card-foreground);
-    background: var(--card);
+  .sidebar nav a:hover {
+    background: var(--sidebar-accent);
+    color: var(--sidebar-accent-foreground);
+  }
+
+  .sidebar nav a[aria-current="page"] {
+    background: var(--sidebar-accent);
+    color: var(--sidebar-accent-foreground);
     box-shadow: var(--luma-elevation);
   }
 
@@ -149,9 +190,10 @@ const { demo = false } = Astro.props;
 
   .explorer {
     display: grid;
-    grid-template-columns: minmax(0, 18rem) minmax(0, 1fr);
-    align-items: start;
-    gap: clamp(1rem, 2vw, 1.5rem);
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--workspace-gap);
+    max-width: 72rem;
+    margin-inline: auto;
   }
 
   .explorer-controls,
@@ -165,8 +207,47 @@ const { demo = false } = Astro.props;
     box-shadow: var(--luma-elevation);
   }
 
-  .explorer-controls h2 {
-    margin-bottom: 1.25rem;
+  .example-fields {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    font-size: 0.875rem;
+  }
+
+  .example-fields select {
+    width: auto;
+    max-width: 100%;
+  }
+
+  .example-fields button {
+    margin-inline-start: auto;
+    background: var(--secondary);
+    color: var(--secondary-foreground);
+  }
+
+  .archive-series-count,
+  .archive-viewer small {
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+  }
+
+  .archive-frame img {
+    width: 100%;
+    background: var(--secondary);
+  }
+
+  .archive-frame figcaption {
+    margin-top: 0.5rem;
+  }
+
+  .archive-state p {
+    margin: 0;
+  }
+
+  .explorer-controls {
+    padding-block: clamp(0.75rem, 1.25vw, 1rem);
   }
 
   form,
@@ -188,7 +269,7 @@ const { demo = false } = Astro.props;
   button {
     box-sizing: border-box;
     min-width: 0;
-    min-height: 2.75rem;
+    min-height: var(--control-height);
     padding: 0.6rem 0.75rem;
     border: 1px solid transparent;
     font: inherit;
@@ -227,11 +308,6 @@ const { demo = false } = Astro.props;
     font-weight: 550;
   }
 
-  .playback button {
-    background: var(--secondary);
-    color: var(--secondary-foreground);
-  }
-
   button:hover:not(:disabled) {
     filter: brightness(0.9);
     cursor: pointer;
@@ -241,14 +317,14 @@ const { demo = false } = Astro.props;
     opacity: 0.55;
   }
 
-  :is(button, .intro nav a, .evidence-export a, .astrometry-results a) {
+  :is(button, .evidence-export a, .astrometry-results a) {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.45rem;
   }
 
-  :is(button, .intro nav a, .evidence-export a, .astrometry-results a) svg {
+  :is(button, .sidebar nav a, .evidence-export a, .astrometry-results a) svg {
     width: 1rem;
     height: 1rem;
     flex: none;
@@ -328,11 +404,6 @@ const { demo = false } = Astro.props;
 
   .field-error {
     color: var(--destructive);
-  }
-
-  .viewer {
-    min-height: 16rem;
-    background: var(--card);
   }
 
   figure {
@@ -632,12 +703,43 @@ const { demo = false } = Astro.props;
     color: var(--accent-foreground);
   }
 
-  .astrometry-review {
+  .dashboard-demo :is(.difference-preview, .astrometry-review) {
     margin-top: clamp(1rem, 2vw, 1.5rem);
   }
 
-  .astrometry-review form {
-    max-width: 38rem;
+  .review-form {
+    gap: var(--workspace-gap);
+    align-items: start;
+  }
+
+  .review-options,
+  .review-actions {
+    display: grid;
+    min-width: 0;
+    gap: 0.5rem;
+  }
+
+  .review-options {
+    gap: 1rem;
+  }
+
+  .review-actions {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+  }
+
+  .review-options .field-error {
+    margin: 0;
+  }
+
+  @media (min-width: 58rem) {
+    .review-form {
+      grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    }
+
+    .review-options {
+      padding-inline-start: var(--workspace-gap);
+      border-inline-start: 1px solid var(--border);
+    }
   }
 
   .astrometry-review textarea {
@@ -653,10 +755,6 @@ const { demo = false } = Astro.props;
   .astrometry-review small,
   .astrometry-metrics span {
     color: var(--muted-foreground);
-  }
-
-  .astrometry-review form button {
-    justify-self: start;
   }
 
   .astrometry-review .archived-track {
@@ -724,10 +822,69 @@ const { demo = false } = Astro.props;
     gap: 0.5rem;
   }
 
+  .timeline select {
+    font-size: 0.875rem;
+    font-variant-numeric: tabular-nums;
+  }
+
   .playback {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: var(--control-height) minmax(0, 1fr) var(
+        --control-height
+      );
+    gap: 0.25rem;
+    padding: 0.25rem;
+    border-radius: var(--luma-radius-surface);
+    background: var(--secondary);
+  }
+
+  .playback button {
+    padding: 0.35rem;
+    font-size: 0.875rem;
+  }
+
+  .playback button:first-child,
+  .playback button:last-child {
+    color: var(--secondary-foreground);
+    background: transparent;
+  }
+
+  .playback button:first-child:hover,
+  .playback button:last-child:hover {
+    background: var(--card);
+  }
+
+  .observation-context {
+    min-width: 0;
+    border-top: 1px solid var(--border);
+    font-size: 0.875rem;
+  }
+
+  .observation-context dl {
+    display: grid;
     gap: 0.5rem;
+    margin: 0;
+    padding-block: 0.5rem;
+  }
+
+  .observation-context dl div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.5rem;
+  }
+
+  .observation-context dd {
+    min-width: 0;
+    margin: 0;
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .observation-context #pixel-position {
+    margin: 0;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border);
+    font-variant-numeric: tabular-nums;
   }
 
   figcaption a {
@@ -781,9 +938,142 @@ const { demo = false } = Astro.props;
     margin: 0.75rem 0 0;
   }
 
-  @media (max-width: 44rem) {
-    .explorer {
+  .viewer-inspector {
+    display: grid;
+    min-width: 0;
+    margin-top: var(--workspace-gap);
+    gap: var(--workspace-gap);
+  }
+
+  .viewer-inspector > :is(.pixel-spectrum, .source-inspection) {
+    margin: 0;
+  }
+
+  .detections summary,
+  .difference-footer summary,
+  .astrometry-results summary {
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  @media (min-width: 36rem) {
+    .coordinate-search {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--workspace-gap);
+      align-items: start;
+    }
+
+    .coordinate-search .term-label {
+      min-height: 1.5rem;
+    }
+
+    .coordinate-search > button {
+      margin-top: 2rem;
+    }
+  }
+
+  @media (min-width: 58rem) {
+    .coordinate-search {
+      grid-template-columns: repeat(3, minmax(0, 1fr)) max-content;
+    }
+
+    .coordinate-search .term-label {
+      flex-wrap: nowrap;
+      font-size: 0.875rem;
+    }
+
+    .coordinate-search label {
+      white-space: nowrap;
+    }
+
+    .coordinate-search .term-help-trigger {
+      width: 1.25rem;
+    }
+
+    .viewer {
+      --image-size: min(62%, 36rem, max(16rem, calc(100dvh - 27.25rem)));
+      display: grid;
+      grid-template-columns: var(--image-size) minmax(0, 1fr);
+      gap: var(--workspace-gap);
+      align-items: start;
+    }
+
+    .viewer-header,
+    .viewer.archive-state > *,
+    .detections {
+      grid-column: 1 / -1;
+    }
+
+    .viewer-image figure,
+    .archive-frame {
+      margin-top: 0;
+    }
+
+    .sky-window {
+      width: 100%;
+    }
+
+    .image-controls button {
+      padding-inline: 0.5rem;
+    }
+
+    .viewer-inspector {
+      margin-top: 0;
+      gap: 0.75rem;
+      padding-inline-start: clamp(0.5rem, 1vw, 0.875rem);
+      border-inline-start: 1px solid var(--border);
+    }
+
+    .viewer-inspector > * {
+      max-width: 27rem;
+    }
+
+    .viewer .detections {
+      margin-top: 0;
+    }
+  }
+
+  @media (max-width: 60rem) {
+    .dashboard {
+      grid-template-columns: 10rem minmax(0, 1fr);
+    }
+  }
+
+  @media (max-width: 48rem) {
+    .dashboard {
       grid-template-columns: minmax(0, 1fr);
+    }
+
+    .sidebar {
+      position: static;
+      min-height: auto;
+      padding: 0.85rem 1rem;
+      border-inline-end: 0;
+      border-bottom: 1px solid var(--sidebar-border);
+    }
+
+    .sidebar h1 {
+      padding: 0;
+    }
+
+    .sidebar nav {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin-top: 0.6rem;
+    }
+
+    .sidebar nav a {
+      justify-content: center;
+      gap: 0.3rem;
+      padding-inline: 0.25rem;
+      font-size: 0.8125rem;
+    }
+  }
+
+  @media (max-width: 23rem) {
+    .sidebar nav a {
+      flex-direction: column;
+      gap: 0.2rem;
     }
   }
 </style>

@@ -11,3 +11,5 @@ __pycache__/
 
 src-tauri/target/
 src-tauri/gen/
+
+.venv/

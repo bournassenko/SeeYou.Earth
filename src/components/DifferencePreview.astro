@@ -73,49 +73,47 @@ function dateLabel(date: string) {
       </figcaption>
     </figure>
   </div>
-  <p>
-    <a href="https://irsa.ipac.caltech.edu/Missions/ztf.html">ZTF · r band</a> ·{" "}
-    {comparison.validPixels} pixels in common · Experimental
-  </p>
-  <details>
-    <summary>Motion candidates ({tracks.candidates.length})</summary>
-    <p class="term-label">
-      Track screening{" "}
-      <TermHelp client:load term="motion candidates">
-        Detections in different exposures that could follow a common path. Image
-        artifacts and unrelated sources can also form apparent tracks.
-      </TermHelp>
+  <div class="difference-footer">
+    <p>
+      <a href="https://irsa.ipac.caltech.edu/Missions/ztf.html">ZTF · r band</a>
+      <span>{comparison.validPixels} shared pixels · Experimental</span>
     </p>
-    {tracks.candidates.length === 0 ? (
-      <p>
-        {tracks.detectionsPerExposure.includes(0)
-          ? "At least one exposure has no detections for a three-epoch fit."
-          : "No trajectory passed screening across the three ZTF exposures."}
+    <details>
+      <summary>Motion candidates ({tracks.candidates.length})</summary>
+      <p class="term-label">
+        Track screening{" "}
+        <TermHelp client:load term="motion candidates">
+          Detections in different exposures that could follow a common path.
+          Image artifacts and unrelated sources can also form apparent tracks.
+        </TermHelp>
       </p>
-    ) : (
-      <ol>
-        {tracks.candidates.map((candidate) => (
-          <li>
-            RA {candidate.ra.toFixed(5)}° · Dec {candidate.dec.toFixed(5)}° ·
-            {candidate.speedArcsecPerDay.toFixed(2)}″/day · Δχ²{" "}
-            {candidate.deltaChiSquared.toFixed(1)}
-          </li>
-        ))}
-      </ol>
-    )}
-  </details>
+      {tracks.candidates.length === 0 ? (
+        <p>
+          {tracks.detectionsPerExposure.includes(0)
+            ? "At least one exposure has no detections for a three-epoch fit."
+            : "No trajectory passed screening across the three ZTF exposures."}
+        </p>
+      ) : (
+        <ol>
+          {tracks.candidates.map((candidate) => (
+            <li>
+              RA {candidate.ra.toFixed(5)}° · Dec {candidate.dec.toFixed(5)}° ·
+              {candidate.speedArcsecPerDay.toFixed(2)}″/day · Δχ²{" "}
+              {candidate.deltaChiSquared.toFixed(1)}
+            </li>
+          ))}
+        </ol>
+      )}
+    </details>
+  </div>
 </section>
 
 <style>
-  .difference-preview {
-    margin-top: clamp(1rem, 2vw, 1.5rem);
-  }
-
   .difference-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: clamp(0.5rem, 2vw, 1rem);
-    margin-top: 1rem;
+    gap: var(--workspace-gap);
+    margin-top: var(--workspace-gap);
   }
 
   .difference-grid figure {
@@ -129,8 +127,27 @@ function dateLabel(date: string) {
 
   .difference-grid figcaption {
     display: grid;
-    justify-content: start;
-    gap: 0.15rem;
+    grid-template-rows: auto 1fr;
+    align-items: start;
+    gap: 0.25rem;
+    line-height: 1.3;
+  }
+
+  .difference-footer {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: var(--workspace-gap);
+    padding-top: var(--workspace-gap);
+    border-top: 1px solid var(--border);
+  }
+
+  .difference-footer > p {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem 0.75rem;
+    margin: 0;
+    font-size: 0.875rem;
   }
 
   .difference-grid strong {

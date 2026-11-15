@@ -8,7 +8,7 @@ node_sha256=48cc0e21e048790e54c0cf5749c2725005313d652651c40b7a21feb9697aaf75
 exec > >(tee -a /var/log/seeyou-bootstrap.log) 2>&1
 export DEBIAN_FRONTEND=noninteractive ASTRO_TELEMETRY_DISABLED=1
 apt-get update -o Acquire::Retries=3
-apt-get install -y --no-install-recommends ca-certificates curl git nginx xz-utils
+apt-get install -y --no-install-recommends ca-certificates curl git nginx python3-venv xz-utils
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
@@ -31,6 +31,8 @@ npm ci --no-audit --no-fund
 npm run build
 install -d /srv/seeyou-earth
 cp -a dist server /srv/seeyou-earth/
+python3 -m venv /srv/seeyou-earth/.venv
+/srv/seeyou-earth/.venv/bin/python -m pip install --disable-pip-version-check -r server/requirements.txt
 printf '%s\n' "$app_revision" > /srv/seeyou-earth/dist/version.txt
 
 cat > /etc/systemd/system/seeyou-earth-api.service <<'UNIT'
@@ -43,6 +45,8 @@ Wants=network-online.target
 User=www-data
 WorkingDirectory=/srv/seeyou-earth
 ExecStart=/opt/seeyou-node/bin/node /srv/seeyou-earth/server/index.mjs
+Environment=SPHEREX_PYTHON=/srv/seeyou-earth/.venv/bin/python
+Environment=OPENBLAS_NUM_THREADS=1
 Restart=on-failure
 NoNewPrivileges=true
 PrivateTmp=true
@@ -72,7 +76,7 @@ server {
         limit_req zone=seeyou_archive burst=4 nodelay;
         limit_req_status 429;
         proxy_pass http://127.0.0.1:4323;
-        proxy_read_timeout 25s;
+        proxy_read_timeout 95s;
     }
 
     location = /api/health {
