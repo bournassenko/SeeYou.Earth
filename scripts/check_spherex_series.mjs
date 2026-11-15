@@ -15,6 +15,16 @@ function checkFrames(frames) {
     previous = date;
     assert(frame.coverage >= 0.25 && frame.coverage <= 1);
     assert(frame.wavelength > 0 && frame.bandwidth > 0);
+    assert.match(frame.cutoutSha256, /^[a-f0-9]{64}$/);
+    assert.equal(frame.detection.status, "complete");
+    assert(frame.detection.total >= frame.detection.sources.length);
+    assert(frame.detection.sources.length <= 150);
+    for (const source of frame.detection.sources) {
+      assert(source.ra >= 0 && source.ra < 360);
+      assert(source.dec >= -90 && source.dec <= 90);
+      assert(source.x >= 0 && source.x < 1 && source.y >= 0 && source.y < 1);
+      assert(source.peakSnr >= 5);
+    }
     const cutout = new URL(frame.cutout);
     assert.equal(cutout.origin, "https://irsa.ipac.caltech.edu");
     assert.match(
@@ -44,6 +54,8 @@ for (const target of targets) {
     : JSON.parse(
         await readFile(new URL(`../public${url}`, import.meta.url), "utf8"),
       );
+  assert.equal(data.detectionMethod.id, "spherex-daofind-v1");
+  assert(data.all.frames.some((frame) => frame.detection.total > 0));
   assert(data.series.length > 0, `No comparable sequence for ${target}`);
   checkFrames(data.all.frames);
   for (const group of data.series) {

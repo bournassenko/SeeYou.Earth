@@ -28,6 +28,7 @@ npm run format:check
 npm run check
 npm run build
 node scripts/check_spherex_series.mjs
+.venv/bin/python -m unittest scripts.test_spherex_sources
 npm run preview
 ```
 
@@ -183,6 +184,25 @@ from samples on one detector with comparable central wavelengths. The
 all-wavelength sequence is also available. Detector wavelength still varies
 across each exposure. These display previews do not provide calibrated
 difference photometry or demonstrate motion in any individual source.
+
+Use **Markers** to inspect point-like detections computed in the native FITS
+pixels. A marker pins that sky position across the aligned sequence. Marker
+numbers are local to an exposure. In a comparable spectral group, use **Swipe
+compare** to choose a second exposure and inspect both with the shared stretch.
+
+The frame report contains the observation identifiers, date, detector, original
+cutout URL and SHA-256, field geometry, detection method, and the measured
+centroids and peak SNR values. The detector applies the same native-pixel
+quality screening as the M101 example. At most 150 detections from a frame
+are reported, and at most 30 are drawn on the image. The report distinguishes an
+unavailable measurement from a completed measurement with zero detections.
+Peak SNR is a screening statistic. Source numbering and pinned positions
+do not associate detections between exposures or identify physical objects.
+
+Regenerate the bundled measurements from the archive with
+`.venv/bin/python -m scripts.measure_spherex_examples`. Pass an example
+filename stem to measure one field. The script preserves the preview pixels
+and records the SHA-256 of the FITS cutout used for measurement.
 
 The example picker uses archived preview sequences for Barnard’s Star,
 Epsilon Indi B, WISE 0855, RW Aurigae, and R Draconis. Use **Search archive**

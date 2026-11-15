@@ -27,7 +27,7 @@ install -d "$root/releases/$revision"
 cp -a dist server "$root/releases/$revision/"
 python3 -m venv "$root/releases/$revision/.venv"
 "$root/releases/$revision/.venv/bin/python" -m pip install --disable-pip-version-check -r server/requirements.txt
-"$root/releases/$revision/.venv/bin/python" -c 'from astropy.io import fits; from astropy.wcs import WCS; from PIL import Image'
+"$root/releases/$revision/.venv/bin/python" -c 'from astropy.io import fits; from astropy.wcs import WCS; from PIL import Image; from photutils.detection import DAOStarFinder'
 printf '%s\n' "$revision" > "$root/releases/$revision/dist/version.txt"
 
 ln -sfn "$root/releases/$revision" "$root/current-next"

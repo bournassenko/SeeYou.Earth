@@ -2,6 +2,7 @@ import base64
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import redirect_stdout
 from datetime import datetime
+from hashlib import sha256
 from io import BytesIO
 import json
 import sys
@@ -16,7 +17,12 @@ import numpy as np
 from PIL import Image
 
 
-SOURCE_FLAG = 1 << 21
+if __package__:
+    from .source_detection import MIN_PEAK_SNR, SOURCE_FLAG, detect_sources
+else:
+    from source_detection import MIN_PEAK_SNR, SOURCE_FLAG, detect_sources
+
+MAX_REPORTED_SOURCES = 150
 MAX_CUTOUT_BYTES = 12 * 1024 * 1024
 
 
@@ -29,17 +35,43 @@ def sky_grid(ra, dec, fov):
     grid.wcs.crpix = [(pixels + 1) / 2] * 2
     scale = np.rad2deg(2 * np.tan(np.deg2rad(fov / 2))) / pixels
     grid.wcs.cdelt = [-scale, scale]
-    y, x = np.indices((pixels, pixels))
-    return grid.pixel_to_world(x, pixels - 1 - y)
+    return grid, pixels
 
 
-def load_frame(entry, center, sky, fov):
-    params = urlencode({"center": f"{center.ra.deg},{center.dec.deg}", "size": f"{fov * 1.06:.6f}"})
-    url = f"{entry['source']}?{params}"
+def download_cutout(url):
     with urlopen(url, timeout=12) as response:
         content = response.read(MAX_CUTOUT_BYTES + 1)
     if len(content) > MAX_CUTOUT_BYTES:
         raise ValueError("Cutout exceeds the size limit.")
+    return content
+
+
+def detection_summary(hdus, spatial, grid, size):
+    try:
+        sources = detect_sources(hdus, spatial)
+    except (ValueError, KeyError) as error:
+        return {"status": "unavailable", "reason": str(error)}
+    if not sources:
+        return {"status": "complete", "total": 0, "sources": []}
+
+    positions = SkyCoord([s["ra"] for s in sources], [s["dec"] for s in sources], unit="deg")
+    columns, rows = grid.world_to_pixel(positions)
+    visible = []
+    for source, column, row in zip(sources, columns, rows, strict=True):
+        x, y = (column + 0.5) / size, (size - row - 0.5) / size
+        if 0 <= x < 1 and 0 <= y < 1:
+            visible.append({**source, "x": x, "y": y})
+    return {
+        "status": "complete",
+        "total": len(visible),
+        "sources": visible[:MAX_REPORTED_SOURCES],
+    }
+
+
+def load_frame(entry, center, sky, grid, size, fov):
+    params = urlencode({"center": f"{center.ra.deg},{center.dec.deg}", "size": f"{fov * 1.06:.6f}"})
+    url = f"{entry['source']}?{params}"
+    content = download_cutout(url)
 
     with fits.open(BytesIO(content), memmap=False) as hdus:
         image = hdus["IMAGE"]
@@ -75,6 +107,8 @@ def load_frame(entry, center, sky, fov):
             "wavelength": wave,
             "bandwidth": band,
             "coverage": coverage,
+            "cutoutSha256": sha256(content).hexdigest(),
+            "detection": detection_summary(hdus, spatial, grid, size),
         }, aligned
 
 
@@ -123,11 +157,13 @@ def main():
     ra, dec, fov = (request[key] for key in ("ra", "dec", "fov"))
     entries = request["entries"]
     center = SkyCoord(ra, dec, unit="deg", frame="icrs")
-    sky = sky_grid(ra, dec, fov)
+    grid, size = sky_grid(ra, dec, fov)
+    y, x = np.indices((size, size))
+    sky = grid.pixel_to_world(x, size - 1 - y)
 
     def download(entry):
         try:
-            return load_frame(entry, center, sky, fov), False
+            return load_frame(entry, center, sky, grid, size, fov), False
         except (OSError, ValueError, KeyError) as error:
             print(str(error), file=sys.stderr)
             return None, True
@@ -144,6 +180,11 @@ def main():
         "all": {"comparable": False, **encode_frames(frames)} if frames else None,
         "failed": sum(failed for _, failed in results),
         "sampled": len(entries),
+        "detectionMethod": {
+            "id": "spherex-daofind-v1",
+            "minimumPeakSnr": MIN_PEAK_SNR,
+            "maxReportedSources": MAX_REPORTED_SOURCES,
+        },
     }
 
 
