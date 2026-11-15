@@ -16,7 +16,7 @@ const { demo = false } = Astro.props;
 ---
 
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -24,6 +24,16 @@ const { demo = false } = Astro.props;
       name="description"
       content="SeeYou.Earth is an open-source astronomical exploration project."
     />
+    <script is:inline>
+      const colorPreference = window.matchMedia("(prefers-color-scheme: dark)");
+      const applyColorPreference = () =>
+        document.documentElement.classList.toggle(
+          "dark",
+          colorPreference.matches,
+        );
+      applyColorPreference();
+      colorPreference.addEventListener("change", applyColorPreference);
+    </script>
     <title>{demo ? "SeeYou.Earth · Demo" : "SeeYou.Earth"}</title>
   </head>
   <body>
@@ -227,6 +237,59 @@ const { demo = false } = Astro.props;
   :is(input, select, button, a, summary, figure img):focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 3px;
+  }
+
+  .term-label {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
+  .term-help {
+    position: relative;
+    display: inline-flex;
+    vertical-align: middle;
+  }
+
+  .term-help .term-help-trigger {
+    width: 1.5rem;
+    min-height: 1.5rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--muted-foreground);
+  }
+
+  .term-help .term-help-trigger:hover,
+  .term-help .term-help-trigger:focus-visible {
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
+
+  .term-help .term-help-trigger svg {
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+
+  .term-help-tooltip {
+    position: absolute;
+    z-index: 5;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    box-sizing: border-box;
+    width: min(13rem, 65vw);
+    padding: 0.5rem 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--popover);
+    color: var(--popover-foreground);
+    box-shadow: 0 3px 10px oklch(0 0 0 / 15%);
+    font-size: 0.8125rem;
+    font-weight: 400;
+    line-height: 1.45;
+    text-align: start;
   }
 
   input[aria-invalid="true"] {

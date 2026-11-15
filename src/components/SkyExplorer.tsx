@@ -22,6 +22,7 @@ import {
 } from "solid-js";
 
 import PixelSpectrum from "./PixelSpectrum";
+import TermHelp from "./TermHelp";
 
 import detections from "../detections.json";
 import gaiaMatches from "../gaiaMatches.json";
@@ -40,6 +41,7 @@ const coordinateFields = [
   {
     id: "ra",
     label: "Right ascension (RA)",
+    help: "Like longitude on a sky map. It increases eastward and wraps around at 360°.",
     example: "210.80227",
     hint: "0° to less than 360°",
     isValid: (value: number) => value >= 0 && value < 360,
@@ -48,6 +50,7 @@ const coordinateFields = [
   {
     id: "dec",
     label: "Declination (Dec)",
+    help: "Like latitude on a sky map. The celestial equator is 0°, and the poles are ±90°.",
     example: "54.34895",
     hint: "−90° to +90°",
     isValid: (value: number) => value >= -90 && value <= 90,
@@ -56,6 +59,7 @@ const coordinateFields = [
   {
     id: "fov",
     label: "Field of view",
+    help: "The angular width of the region to search, in degrees, centered on the coordinates you enter.",
     example: "0.1",
     hint: "Greater than 0°, up to 180°",
     isValid: (value: number) => value / 2 > 0 && value <= 180,
@@ -403,7 +407,10 @@ export default function SkyExplorer(props: { demo?: boolean }) {
           <For each={coordinateFields}>
             {(field) => (
               <div class="coordinate-field">
-                <label for={field.id}>{field.label}</label>
+                <div class="term-label">
+                  <label for={field.id}>{field.label}</label>
+                  <TermHelp term={field.label}>{field.help}</TermHelp>
+                </div>
                 <input
                   id={field.id}
                   name={field.id}
@@ -433,7 +440,13 @@ export default function SkyExplorer(props: { demo?: boolean }) {
             aria-label="IRSA search results"
             aria-busy={archive.loading}
           >
-            <h3>SPHEREx archive</h3>
+            <h3 class="term-label">
+              SPHEREx archive{" "}
+              <TermHelp term="SPHEREx">
+                A space telescope that surveys the sky at infrared wavelengths.
+                The archive lists exposures that cover your search region.
+              </TermHelp>
+            </h3>
             <Show when={!archive.loading} fallback={<p>Searching IRSA…</p>}>
               <Show when={archive()} keyed>
                 {(result) =>
@@ -703,7 +716,13 @@ export default function SkyExplorer(props: { demo?: boolean }) {
           )}
         </Show>
         <div class="timeline">
-          <label for="observation">Observation (UTC)</label>
+          <div class="term-label">
+            <label for="observation">Observation (UTC)</label>
+            <TermHelp term="UTC">
+              Coordinated Universal Time, the common time standard used for
+              these observation timestamps.
+            </TermHelp>
+          </div>
           <select
             id="observation"
             value={index()}
@@ -757,6 +776,14 @@ export default function SkyExplorer(props: { demo?: boolean }) {
         </div>
         <details class="detections" id="detected-sources" ref={sourceDetails}>
           <summary>Detected sources ({sources().length})</summary>
+          <p class="term-label">
+            Detection metrics{" "}
+            <TermHelp term="detection metrics">
+              Peak SNR compares the signal at the source center, after
+              background subtraction, with estimated noise. Gaia DR3 lists
+              nearby catalog sources, which can include chance alignments.
+            </TermHelp>
+          </p>
           <p class="evidence-export">
             <a href={evidence()} download={`${observation().id}-evidence.json`}>
               <Download aria-hidden="true" /> Export detections and provenance

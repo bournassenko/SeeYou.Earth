@@ -1,4 +1,5 @@
 ---
+import TermHelp from "./TermHelp";
 import comparison from "../ztfDifference.json";
 import tracksJson from "../ztfTracks.json";
 
@@ -23,7 +24,13 @@ function dateLabel(date: string) {
 ---
 
 <section class="difference-preview" aria-labelledby="difference-title">
-  <h2 id="difference-title">Image difference</h2>
+  <h2 id="difference-title" class="term-label">
+    Image difference{" "}
+    <TermHelp client:load term="image difference">
+      After aligning two exposures, subtract the earlier image from the later
+      one. Light pixels brightened and dark pixels faded.
+    </TermHelp>
+  </h2>
   <div class="difference-grid">
     <figure>
       <img
@@ -72,6 +79,13 @@ function dateLabel(date: string) {
   </p>
   <details>
     <summary>Motion candidates ({tracks.candidates.length})</summary>
+    <p class="term-label">
+      Track screening{" "}
+      <TermHelp client:load term="motion candidates">
+        Detections in different exposures that could follow a common path. Image
+        artifacts and unrelated sources can also form apparent tracks.
+      </TermHelp>
+    </p>
     {tracks.candidates.length === 0 ? (
       <p>
         {tracks.detectionsPerExposure.includes(0)

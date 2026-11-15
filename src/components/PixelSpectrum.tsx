@@ -1,5 +1,7 @@
 import { createMemo, For, Show } from "solid-js";
 
+import TermHelp from "./TermHelp";
+
 type Sample = {
   index: number;
   date: string;
@@ -40,12 +42,24 @@ export default function PixelSpectrum(props: {
 
   return (
     <section class="pixel-spectrum" aria-label="Pinned pixel spectrum">
-      <h4>Pixel spectrum</h4>
+      <h4 class="term-label">
+        Pixel spectrum{" "}
+        <TermHelp term="pixel spectrum">
+          Brightness at the selected sky position across sampled infrared
+          wavelengths. The vertical bars show measurement uncertainty.
+        </TermHelp>
+      </h4>
       <Show when={plot()} fallback={<p>No usable samples at this position.</p>}>
         {(chart) => (
           <div class="spectrum-layout">
             <div class="spectrum-figure">
-              <span>Brightness (MJy/sr)</span>
+              <span class="term-label">
+                Brightness (MJy/sr){" "}
+                <TermHelp term="MJy/sr">
+                  Megajanskys per steradian, a unit of brightness per solid
+                  angle on the sky.
+                </TermHelp>
+              </span>
               <div class="spectrum-chart">
                 <div class="spectrum-ticks">
                   <span>{chart().high.toFixed(3)}</span>

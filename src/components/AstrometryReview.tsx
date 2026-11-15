@@ -1,3 +1,4 @@
+import TermHelp from "./TermHelp";
 import Activity from "lucide-solid/icons/activity";
 import Download from "lucide-solid/icons/download";
 import Archive from "lucide-solid/icons/archive";
@@ -119,7 +120,13 @@ export default function AstrometryReview(props: { demo?: boolean }) {
       aria-labelledby="astrometry-title"
       data-demo-review={props.demo && ready() ? "ready" : undefined}
     >
-      <h2 id="astrometry-title">Astrometry review</h2>
+      <h2 id="astrometry-title" class="term-label">
+        Astrometry review{" "}
+        <TermHelp term="astrometry">
+          Measuring where a source appears on the sky. Comparing positions over
+          time helps test whether its apparent motion exceeds measurement noise.
+        </TermHelp>
+      </h2>
       <p>
         Compare measured sky positions against a fixed position and a
         constant-motion track.
@@ -131,7 +138,14 @@ export default function AstrometryReview(props: { demo?: boolean }) {
         }}
       >
         <div class="coordinate-field">
-          <label for="astrometry-csv">Measurements</label>
+          <div class="term-label">
+            <label for="astrometry-csv">Measurements</label>
+            <TermHelp term="measurement format">
+              An epoch is an observation time. ICRS is the reference frame for
+              sky coordinates. One arcsecond is 1/3600 of a degree, and 1σ is
+              one standard deviation of position uncertainty.
+            </TermHelp>
+          </div>
           <input
             type="file"
             accept=".csv,text/csv"
@@ -198,7 +212,14 @@ export default function AstrometryReview(props: { demo?: boolean }) {
                 <strong>{format(review.result.speedArcsecPerDay)}″/day</strong>
               </div>
               <div>
-                <span>Position fixed · χ²</span>
+                <span class="term-label">
+                  Position fixed · χ²{" "}
+                  <TermHelp term="chi-squared">
+                    A measure of disagreement between observed and fitted
+                    positions, scaled by the reported uncertainties. Smaller
+                    values indicate a closer fit for the same measurements.
+                  </TermHelp>
+                </span>
                 <strong>{format(review.result.stationaryChiSquared)}</strong>
               </div>
               <div>
@@ -211,7 +232,14 @@ export default function AstrometryReview(props: { demo?: boolean }) {
               </div>
             </div>
             <p>
-              Last epoch held out.
+              <span class="term-label">
+                Last epoch held out.{" "}
+                <TermHelp term="held-out observation">
+                  The latest position is excluded from the fit. Its offset
+                  measures the sky separation between the predicted and observed
+                  positions.
+                </TermHelp>
+              </span>
               <br />
               Predicted RA {review.result.withheld.predicted.ra.toFixed(6)}° ·
               Dec {review.result.withheld.predicted.dec.toFixed(6)}°.
