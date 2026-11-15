@@ -1,0 +1,59 @@
+---
+import ProjectIntro from "../components/ProjectIntro";
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="SeeYou.Earth is an open-source astronomical exploration project."
+    />
+    <title>SeeYou.Earth</title>
+  </head>
+  <body>
+    <main>
+      <ProjectIntro />
+    </main>
+  </body>
+</html>
+
+<style>
+  html {
+    color-scheme: dark;
+    background: #0b1321;
+    color: #f1f5ff;
+    font-family: system-ui, sans-serif;
+  }
+
+  body {
+    display: grid;
+    min-height: 100svh;
+    margin: 0;
+    place-items: center;
+  }
+
+  main {
+    box-sizing: border-box;
+    width: min(100%, 54rem);
+    padding: 2rem clamp(1.5rem, 6vw, 4rem);
+  }
+
+  main :global(h1) {
+    margin: 0;
+    font-size: clamp(2.5rem, 9vw, 6rem);
+    line-height: 1;
+    letter-spacing: -0.06em;
+    overflow-wrap: anywhere;
+  }
+
+  main :global(p) {
+    max-width: 40ch;
+    margin: 1.25rem 0 0;
+    color: #b7c6da;
+    font-size: clamp(1rem, 2.5vw, 1.25rem);
+    line-height: 1.6;
+  }
+</style>
