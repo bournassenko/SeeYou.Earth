@@ -240,5 +240,5 @@ archived astrometry review. The tour uses the same controls and observations
 as the explorer and can be paused or replayed.
 
 The demo uses a large animated pointer and a spotlight to follow the active
-control. Both overlays leave the page interactive. Reduced-motion settings
+control. The cursor activates the displayed controls and clicks Next automatically. Both overlays leave the page interactive. Reduced-motion settings
 disable the pointer animation and smooth scrolling.

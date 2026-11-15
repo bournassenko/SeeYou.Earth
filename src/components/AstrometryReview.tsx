@@ -1,4 +1,4 @@
-import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { createSignal, For, onMount, Show } from "solid-js";
 import {
   astrometryHeader,
   parseAstrometry,
@@ -18,17 +18,7 @@ const format = (value: number) =>
 
 export default function AstrometryReview(props: { demo?: boolean }) {
   const [ready, setReady] = createSignal(false);
-  let reviewSection: HTMLElement | undefined;
-  onMount(() => {
-    if (props.demo && reviewSection) {
-      const target = reviewSection;
-      target.addEventListener("seeyou-demo", loadArchivedTrack);
-      onCleanup(() =>
-        target.removeEventListener("seeyou-demo", loadArchivedTrack),
-      );
-    }
-    setReady(true);
-  });
+  onMount(() => setReady(true));
   const [csv, setCsv] = createSignal("");
   const [provenance, setProvenance] = createSignal("");
   const [error, setError] = createSignal("");
@@ -124,7 +114,6 @@ export default function AstrometryReview(props: { demo?: boolean }) {
     <section
       class="astrometry-review"
       aria-labelledby="astrometry-title"
-      ref={reviewSection}
       data-demo-review={props.demo && ready() ? "ready" : undefined}
     >
       <h2 id="astrometry-title">Astrometry review</h2>

@@ -321,25 +321,17 @@ export default function SkyExplorer(props: { demo?: boolean }) {
       showObservation(0);
       changeZoom(1);
       coordinateForm?.reset();
-      coordinateForm?.requestSubmit();
     } else if (action === "sources") {
       if (sourceDetails) sourceDetails.open = true;
-      inspectSource(0);
     } else if (action === "compare") {
       if (sourceDetails) sourceDetails.open = false;
       setSelectedSource(undefined);
-      if (!comparing()) toggleComparison();
-      setDivider(35);
-    } else if (action === "reveal") {
-      setDivider(70);
+      setComparing(false);
     } else if (action === "spectrum") {
       setComparing(false);
       setPlaying(false);
       showObservation(0);
-      setPinnedPixel({
-        x: Math.floor(reference.width / 2),
-        y: Math.floor(reference.height / 2),
-      });
+      setPinnedPixel(undefined);
     }
   }
 

@@ -5,8 +5,11 @@
   </div>
   <div class="demo-controls">
     <progress aria-label="Tour progress" value="0"></progress>
-    <button type="button" disabled>
+    <button type="button" data-demo-pause disabled>
       Pause
+    </button>
+    <button type="button" data-demo-next disabled>
+      Next
     </button>
   </div>
 </div>
@@ -25,7 +28,9 @@
       "[data-demo-description]",
     )!;
     const progress = tour.querySelector<HTMLProgressElement>("progress")!;
-    const button = tour.querySelector<HTMLButtonElement>("button")!;
+    const button = tour.querySelector<HTMLButtonElement>("[data-demo-pause]")!;
+    const nextButton =
+      tour.querySelector<HTMLButtonElement>("[data-demo-next]")!;
     const spotlight = document.querySelector<HTMLElement>(".demo-spotlight")!;
     const pointer = document.querySelector<HTMLElement>(".demo-pointer")!;
     const explorer = '[data-demo-explorer="ready"]';
@@ -164,11 +169,28 @@
       refreshOverlays();
     }
 
-    function clickEffect() {
-      pointer.classList.remove("demo-click");
+    function clickControl(control: HTMLElement | null) {
+      if (!control) return;
       if (!pointer.hidden && !reducedMotion.matches) {
-        requestAnimationFrame(() => pointer.classList.add("demo-click"));
+        pointer
+          .querySelector("span")
+          ?.animate(
+            [
+              { transform: "scale(1)" },
+              { transform: "translate(2px, 3px) scale(0.78)", offset: 0.42 },
+              { transform: "scale(1)" },
+            ],
+            { duration: 230, easing: "ease-out" },
+          );
       }
+      control.click();
+    }
+
+    function setSwipe(value: number) {
+      const slider = document.querySelector<HTMLInputElement>("#swipe-divider");
+      if (!slider) return;
+      slider.value = String(value);
+      slider.dispatchEvent(new Event("input", { bubbles: true }));
     }
 
     function scrollTo(target: Element | null, block: ScrollLogicalPosition) {
@@ -185,6 +207,7 @@
         title.textContent = "Tour complete";
         description.textContent = "The explorer is ready to use.";
         button.textContent = "Replay";
+        nextButton.disabled = true;
         refreshOverlays();
         return;
       }
@@ -192,30 +215,32 @@
       title.textContent = chapter.title;
       description.textContent = chapter.description;
       progress.value = index + 1;
+      nextButton.disabled = false;
+      dispatch(explorer, chapter.action);
+      if (chapter.action === "difference") {
+        const details = document.querySelector<HTMLDetailsElement>(
+          ".difference-preview details",
+        );
+        if (details) details.open = false;
+      }
       focus = document.querySelector(chapter.focus);
       cursorTarget = null;
-      const control = document.querySelector(chapter.control);
+      const control = document.querySelector<HTMLElement>(chapter.control);
       scrollTo(control ?? focus, "center");
       trackViewport();
 
       const advance = () => {
-        index += 1;
-        showChapter();
+        moveTo("[data-demo-next]");
+        schedule(reducedMotion.matches ? 60 : 540, () =>
+          clickControl(nextButton),
+        );
       };
 
       schedule(reducedMotion.matches ? 60 : 460, () => {
         moveTo(chapter.control);
         schedule(reducedMotion.matches ? 60 : 540, () => {
-          clickEffect();
-          if (chapter.action === "difference") {
-            const details = control?.closest("details");
-            if (details) details.open = true;
-          } else {
-            dispatch(
-              chapter.action === "review" ? review : explorer,
-              chapter.action,
-            );
-          }
+          clickControl(control);
+          if (chapter.action === "compare") setSwipe(35);
           if (chapter.action === "sources")
             focus = document.querySelector(".sky-window");
           if (chapter.action === "compare")
@@ -228,9 +253,8 @@
               schedule(350, () => {
                 moveTo("#swipe-divider", 0.35);
                 schedule(650, () => {
-                  clickEffect();
                   moveTo("#swipe-divider", 0.7);
-                  dispatch(explorer, "reveal");
+                  setSwipe(70);
                   schedule(chapter.duration - 2050, advance);
                 });
               });
@@ -257,6 +281,13 @@
       });
     }
 
+    nextButton.addEventListener("click", () => {
+      if (paused || finished) return;
+      window.clearTimeout(timeout);
+      index += 1;
+      showChapter();
+    });
+
     button.addEventListener("click", () => {
       if (finished) {
         finished = false;
@@ -266,10 +297,12 @@
       } else if (paused) {
         paused = false;
         button.textContent = "Pause";
+        nextButton.disabled = false;
         if (nextAction) schedule(remaining, nextAction);
       } else {
         paused = true;
         button.textContent = "Resume";
+        nextButton.disabled = true;
         remaining = Math.max(0, deadline - performance.now());
         window.clearTimeout(timeout);
       }
@@ -384,31 +417,8 @@
     clip-path: polygon(0 0, 0 79%, 20% 58%, 37% 92%, 51% 85%, 33% 50%, 64% 50%);
   }
 
-  .demo-pointer::before {
-    position: absolute;
-    top: -0.75rem;
-    left: -0.75rem;
-    width: 1.5rem;
-    height: 1.5rem;
-    border: 2px solid var(--foreground);
-    border-radius: 50%;
-    opacity: 0;
-    content: "";
-  }
-
-  .demo-pointer.demo-click::before {
-    animation: demo-click-ring 0.65s ease-out;
-  }
-
-  @keyframes demo-click-ring {
-    from {
-      opacity: 0.95;
-      transform: scale(0.35);
-    }
-    to {
-      opacity: 0;
-      transform: scale(1.55);
-    }
+  .demo-pointer span {
+    transform-origin: top left;
   }
 
   @media (prefers-reduced-motion: reduce) {
