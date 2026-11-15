@@ -62,7 +62,6 @@ const { demo = false } = Astro.props;
 
 <style is:global>
   html {
-    color-scheme: dark;
     background: var(--background);
     color: var(--foreground);
     font-family: "Inter Variable", system-ui, sans-serif;
@@ -144,6 +143,7 @@ const { demo = false } = Astro.props;
 
   .explorer-controls,
   .viewer {
+    color: var(--card-foreground);
     padding: clamp(1rem, 3vw, 1.5rem);
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -550,6 +550,7 @@ const { demo = false } = Astro.props;
   }
 
   .astrometry-review {
+    color: var(--card-foreground);
     margin-top: 1rem;
     padding: clamp(1rem, 3vw, 1.5rem);
     background: var(--card);

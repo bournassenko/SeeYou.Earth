@@ -42,7 +42,6 @@ The viewer displays SPHEREx DR1 Level 2 cutouts from NASA/IPAC IRSA. The coordin
 | Processing version | `l2b-v27-2026-199`                      |
 | Requested cutout   | RA 210.80227°, Dec 54.34895°, size 0.1° |
 | FITS science image | `IMAGE`, 59 × 59 pixels, MJy/sr         |
-| Retrieval date     | 2026-11-19 UTC                          |
 | FITS size          | 4,000,320 bytes                         |
 
 To reproduce the previews, download the three original cutouts and run the renderer with Python 3.14:
