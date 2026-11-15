@@ -1,0 +1,279 @@
+<div id="demo-tour" class="demo-tour" aria-label="Automatic product tour">
+  <div role="status" aria-atomic="true">
+    <strong data-demo-title>Preparing the demo</strong>
+    <span data-demo-description></span>
+  </div>
+  <div class="demo-controls">
+    <progress aria-label="Tour progress" value="0"></progress>
+    <button type="button" disabled>
+      Pause
+    </button>
+  </div>
+</div>
+
+<script>
+  const tour = document.querySelector<HTMLElement>("#demo-tour");
+
+  if (tour) {
+    const title = tour.querySelector<HTMLElement>("[data-demo-title]")!;
+    const description = tour.querySelector<HTMLElement>(
+      "[data-demo-description]",
+    )!;
+    const progress = tour.querySelector<HTMLProgressElement>("progress")!;
+    const button = tour.querySelector<HTMLButtonElement>("button")!;
+    const explorerSelector = '[data-demo-explorer="ready"]';
+    const reviewSelector = '[data-demo-review="ready"]';
+
+    const chapters = [
+      {
+        title: "Search the sky",
+        description: "Find real SPHEREx observations around M101.",
+        target: ".explorer-controls",
+        action: "search",
+        duration: 8500,
+      },
+      {
+        title: "Inspect a source",
+        description:
+          "Connect a marker to its measurements and nearby Gaia entries.",
+        target: ".viewer-header",
+        action: "sources",
+        duration: 6500,
+      },
+      {
+        title: "Compare two exposures",
+        description:
+          "Move the divider across the aligned images. Dates and wavelengths stay visible.",
+        target: ".viewer-header",
+        action: "compare",
+        duration: 6500,
+      },
+      {
+        title: "Read a pixel spectrum",
+        description:
+          "Pin one position to see brightness and uncertainty across wavelengths.",
+        target: ".pixel-spectrum",
+        action: "spectrum",
+        duration: 7500,
+      },
+      {
+        title: "Inspect the difference",
+        description:
+          "See both ZTF exposures and the subtraction on the same grid.",
+        target: ".difference-preview",
+        duration: 6500,
+      },
+      {
+        title: "Review a track",
+        description:
+          "Test an archived trajectory against a withheld observation, then inspect the evidence.",
+        target: ".astrometry-results",
+        action: "review",
+        duration: 8500,
+      },
+    ];
+
+    progress.max = chapters.length;
+    let index = 0;
+    let paused = false;
+    let finished = false;
+    let timeout: number | undefined;
+    let nextAction: (() => void) | undefined;
+    let remaining = 0;
+    let deadline = 0;
+    let seek: number | undefined;
+    let focusChapter: (() => void) | undefined;
+
+    function schedule(delay: number, action: () => void) {
+      remaining = delay;
+      nextAction = action;
+      deadline = performance.now() + delay;
+      timeout = window.setTimeout(() => {
+        timeout = undefined;
+        nextAction = undefined;
+        action();
+      }, delay);
+    }
+
+    function dispatch(selector: string, action: string) {
+      document
+        .querySelector(selector)
+        ?.dispatchEvent(new CustomEvent("seeyou-demo", { detail: action }));
+    }
+
+    function showChapter() {
+      const chapter = chapters[index];
+      if (!chapter) {
+        finished = true;
+        title.textContent = "Tour complete";
+        description.textContent = "The explorer is ready to use.";
+        button.textContent = "Replay";
+        return;
+      }
+
+      title.textContent = chapter.title;
+      description.textContent = chapter.description;
+      progress.value = index + 1;
+      if (chapter.action) {
+        dispatch(
+          chapter.action === "review" ? reviewSelector : explorerSelector,
+          chapter.action,
+        );
+      }
+
+      const started = performance.now();
+      function findChapter() {
+        const target = document.querySelector(chapter.target);
+        if (target || performance.now() - started > 2300) {
+          const fallback =
+            chapter.action === "spectrum"
+              ? document.querySelector("#pixel-position")
+              : null;
+          (target ?? fallback)?.scrollIntoView({
+            block: "start",
+            behavior: window.matchMedia("(prefers-reduced-motion: reduce)")
+              .matches
+              ? "instant"
+              : "smooth",
+          });
+          seek = undefined;
+          focusChapter = undefined;
+        } else {
+          seek = window.setTimeout(findChapter, 80);
+        }
+      }
+      focusChapter = findChapter;
+      findChapter();
+
+      const advance = () => {
+        window.clearTimeout(seek);
+        focusChapter = undefined;
+        index += 1;
+        showChapter();
+      };
+
+      if (chapter.action === "compare") {
+        schedule(1800, () => {
+          dispatch(explorerSelector, "reveal");
+          schedule(chapter.duration - 1800, advance);
+        });
+      } else {
+        schedule(chapter.duration, advance);
+      }
+    }
+
+    button.addEventListener("click", () => {
+      if (finished) {
+        finished = false;
+        index = 0;
+        button.textContent = "Pause";
+        showChapter();
+      } else if (paused) {
+        paused = false;
+        button.textContent = "Pause";
+        if (nextAction) schedule(remaining, nextAction);
+        focusChapter?.();
+      } else {
+        paused = true;
+        button.textContent = "Resume";
+        remaining = Math.max(0, deadline - performance.now());
+        window.clearTimeout(timeout);
+        window.clearTimeout(seek);
+      }
+    });
+
+    const ready = new MutationObserver(start);
+    function start() {
+      if (
+        !document.querySelector(explorerSelector) ||
+        !document.querySelector(reviewSelector)
+      )
+        return;
+      ready.disconnect();
+      button.disabled = false;
+      showChapter();
+    }
+    ready.observe(document.body, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-demo-explorer", "data-demo-review"],
+    });
+    start();
+
+    window.addEventListener(
+      "pagehide",
+      (event) => {
+        if (event.persisted) return;
+        ready.disconnect();
+        window.clearTimeout(timeout);
+        window.clearTimeout(seek);
+      },
+      { once: true },
+    );
+  }
+</script>
+
+<style>
+  .demo-tour {
+    position: sticky;
+    z-index: 5;
+    top: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding: 0.75rem 1rem;
+    background: var(--popover);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 0.35rem 1rem
+      color-mix(in oklch, var(--background) 65%, transparent);
+  }
+
+  .demo-tour [role="status"] {
+    display: grid;
+    gap: 0.25rem;
+  }
+
+  .demo-tour span {
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+  }
+
+  .demo-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .demo-controls progress {
+    width: 5rem;
+    height: 0.55rem;
+    accent-color: var(--primary);
+  }
+
+  .demo-controls button {
+    min-width: 5.5rem;
+    min-height: 2.25rem;
+    padding: 0.3rem 0.7rem;
+    background: var(--secondary);
+    color: var(--secondary-foreground);
+  }
+
+  :global(body:has(#demo-tour))
+    :global(
+      :is(
+        .explorer-controls,
+        .source-inspection,
+        .viewer-header,
+        .pixel-spectrum,
+        #pixel-position,
+        .difference-preview,
+        .astrometry-results
+      )
+    ) {
+    scroll-margin-top: 8rem;
+  }
+</style>

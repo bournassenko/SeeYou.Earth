@@ -53,7 +53,7 @@ const coordinateFields = [
 type CoordinateId = (typeof coordinateFields)[number]["id"];
 type FieldErrors = Partial<Record<CoordinateId, string>>;
 
-export default function SkyExplorer() {
+export default function SkyExplorer(props: { demo?: boolean }) {
   const [errors, setErrors] = createSignal<FieldErrors>({});
   const [selection, setSelection] = createSignal<string[]>();
   let archiveRequest: AbortController | undefined;
@@ -307,7 +307,50 @@ export default function SkyExplorer() {
   }
 
   const decimalDegrees = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/;
-  onMount(() => setReady(true));
+  let demoExplorer: HTMLElement | undefined;
+  let coordinateForm: HTMLFormElement | undefined;
+  let sourceDetails: HTMLDetailsElement | undefined;
+
+  function runDemo(event: Event) {
+    const action = (event as CustomEvent<string>).detail;
+    if (action === "search") {
+      setPlaying(false);
+      setComparing(false);
+      setPinnedPixel(undefined);
+      setMarkers(true);
+      showObservation(0);
+      changeZoom(1);
+      coordinateForm?.reset();
+      coordinateForm?.requestSubmit();
+    } else if (action === "sources") {
+      if (sourceDetails) sourceDetails.open = true;
+      inspectSource(0);
+    } else if (action === "compare") {
+      if (sourceDetails) sourceDetails.open = false;
+      setSelectedSource(undefined);
+      if (!comparing()) toggleComparison();
+      setDivider(35);
+    } else if (action === "reveal") {
+      setDivider(70);
+    } else if (action === "spectrum") {
+      setComparing(false);
+      setPlaying(false);
+      showObservation(0);
+      setPinnedPixel({
+        x: Math.floor(reference.width / 2),
+        y: Math.floor(reference.height / 2),
+      });
+    }
+  }
+
+  onMount(() => {
+    if (props.demo && demoExplorer) {
+      const target = demoExplorer;
+      target.addEventListener("seeyou-demo", runDemo);
+      onCleanup(() => target.removeEventListener("seeyou-demo", runDemo));
+    }
+    setReady(true);
+  });
 
   function submitCoordinates(
     event: SubmitEvent & { currentTarget: HTMLFormElement },
@@ -341,11 +384,16 @@ export default function SkyExplorer() {
   }
 
   return (
-    <section class="explorer" aria-labelledby="explorer-title">
+    <section
+      class="explorer"
+      aria-labelledby="explorer-title"
+      ref={demoExplorer}
+      data-demo-explorer={props.demo && ready() ? "ready" : undefined}
+    >
       <div class="explorer-controls">
         <h2 id="explorer-title">Sky Explorer</h2>
 
-        <form noValidate onSubmit={submitCoordinates}>
+        <form noValidate onSubmit={submitCoordinates} ref={coordinateForm}>
           <For each={coordinateFields}>
             {(field) => (
               <div class="coordinate-field">
@@ -691,7 +739,7 @@ export default function SkyExplorer() {
             </button>
           </div>
         </div>
-        <details class="detections" id="detected-sources">
+        <details class="detections" id="detected-sources" ref={sourceDetails}>
           <summary>Detected sources ({sources().length})</summary>
           <p class="evidence-export">
             <a href={evidence()} download={`${observation().id}-evidence.json`}>

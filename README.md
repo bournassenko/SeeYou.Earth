@@ -233,3 +233,8 @@ They were measured on 2024-12-26 at observatory 703, MPC track
 `00000Ib5XP`. The example uses the larger of `rmsra` and `rmsdec` as
 the common per-axis uncertainty. Observation identifiers are included in
 the report so the sequence can be checked against the archive.
+
+Open `/demo` for a hands-free tour of archive search, source inspection,
+swipe comparison, the pinned-pixel spectrum, image subtraction and the
+archived astrometry review. The tour uses the same controls and observations
+as the explorer and can be paused or replayed.

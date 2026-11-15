@@ -1,4 +1,4 @@
-import { createSignal, For, onMount, Show } from "solid-js";
+import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import {
   astrometryHeader,
   parseAstrometry,
@@ -16,9 +16,19 @@ type Analysis = {
 const format = (value: number) =>
   new Intl.NumberFormat("en", { maximumSignificantDigits: 5 }).format(value);
 
-export default function AstrometryReview() {
+export default function AstrometryReview(props: { demo?: boolean }) {
   const [ready, setReady] = createSignal(false);
-  onMount(() => setReady(true));
+  let reviewSection: HTMLElement | undefined;
+  onMount(() => {
+    if (props.demo && reviewSection) {
+      const target = reviewSection;
+      target.addEventListener("seeyou-demo", loadArchivedTrack);
+      onCleanup(() =>
+        target.removeEventListener("seeyou-demo", loadArchivedTrack),
+      );
+    }
+    setReady(true);
+  });
   const [csv, setCsv] = createSignal("");
   const [provenance, setProvenance] = createSignal("");
   const [error, setError] = createSignal("");
@@ -74,6 +84,12 @@ export default function AstrometryReview() {
     }
   }
 
+  function loadArchivedTrack() {
+    editCsv(archived.csv);
+    setProvenance(archived.provenance);
+    analyze();
+  }
+
   function report(analysis: Analysis) {
     return `data:application/json;charset=utf-8,${encodeURIComponent(
       JSON.stringify(
@@ -105,7 +121,12 @@ export default function AstrometryReview() {
   }
 
   return (
-    <section class="astrometry-review" aria-labelledby="astrometry-title">
+    <section
+      class="astrometry-review"
+      aria-labelledby="astrometry-title"
+      ref={reviewSection}
+      data-demo-review={props.demo && ready() ? "ready" : undefined}
+    >
       <h2 id="astrometry-title">Astrometry review</h2>
       <p>
         Compare measured sky positions against a fixed position and a
@@ -161,11 +182,7 @@ export default function AstrometryReview() {
           class="archived-track"
           type="button"
           disabled={!ready() || loadingFile()}
-          onClick={() => {
-            editCsv(archived.csv);
-            setProvenance(archived.provenance);
-            analyze();
-          }}
+          onClick={loadArchivedTrack}
         >
           Try archived track
         </button>
