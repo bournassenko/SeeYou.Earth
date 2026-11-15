@@ -185,3 +185,8 @@ peak SNR and count of nearby Gaia entries. The detector projects centroids into
 the display grid using the reference WCS and leaves off-frame centroids
 unmarked. Swipe comparison uses the same grid and shows both wavelengths
 alongside the observation dates.
+
+The image can be zoomed to 2× or 4× and panned by scrolling. Pin a pixel to
+keep its ICRS coordinates and marker across aligned exposures. With the image
+focused, the arrow keys move the inspection point and Enter toggles the pin.
+Zoom changes only the view scale.

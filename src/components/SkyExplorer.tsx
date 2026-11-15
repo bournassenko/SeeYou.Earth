@@ -77,6 +77,10 @@ export default function SkyExplorer() {
   const [divider, setDivider] = createSignal(50);
   const reference = observations[0]!;
   const [pixel, setPixel] = createSignal<Pixel>();
+  const [pinnedPixel, setPinnedPixel] = createSignal<Pixel>();
+  const [zoom, setZoom] = createSignal(1);
+  const activePixel = () => pinnedPixel() ?? pixel();
+  let viewport: HTMLDivElement | undefined;
   const observation = () => observations[index()]!;
   const sources = () =>
     detections[observation().name as keyof typeof detections];
@@ -126,7 +130,7 @@ export default function SkyExplorer() {
     },
   );
   const sky = () => {
-    const point = pixel();
+    const point = activePixel();
     return point && !grid.loading
       ? grid()?.coordinates[point.y]?.[point.x]
       : undefined;
@@ -170,8 +174,37 @@ export default function SkyExplorer() {
     }
   });
 
+  function changeZoom(next: number) {
+    if (!viewport || next === zoom()) return;
+    const view = viewport;
+    const point = activePixel();
+    const { width, height } = observation();
+    const x = point
+      ? (point.x + 0.5) / width
+      : (view.scrollLeft + view.clientWidth / 2) / view.scrollWidth;
+    const y = point
+      ? (point.y + 0.5) / height
+      : (view.scrollTop + view.clientHeight / 2) / view.scrollHeight;
+    setZoom(next);
+    window.requestAnimationFrame(() => {
+      view.scrollLeft = x * view.scrollWidth - view.clientWidth / 2;
+      view.scrollTop = y * view.scrollHeight - view.clientHeight / 2;
+    });
+  }
+
+  function togglePin() {
+    if (pinnedPixel()) {
+      setPinnedPixel(undefined);
+      return;
+    }
+    const { width, height } = observation();
+    setPinnedPixel(
+      pixel() ?? { x: Math.floor(width / 2), y: Math.floor(height / 2) },
+    );
+  }
+
   function readPointer(
-    event: PointerEvent & { currentTarget: HTMLImageElement },
+    event: MouseEvent & { currentTarget: HTMLImageElement },
   ) {
     const bounds = event.currentTarget.getBoundingClientRect();
     const { width, height } = observation();
@@ -187,6 +220,12 @@ export default function SkyExplorer() {
   }
 
   function readKeyboard(event: KeyboardEvent) {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      togglePin();
+      return;
+    }
+
     const offsets: Record<string, Pixel> = {
       ArrowLeft: { x: -1, y: 0 },
       ArrowRight: { x: 1, y: 0 },
@@ -198,14 +237,33 @@ export default function SkyExplorer() {
 
     event.preventDefault();
     const { width, height } = observation();
-    const point = pixel() ?? {
+    const point = activePixel() ?? {
       x: Math.floor(width / 2),
       y: Math.floor(height / 2),
     };
-    setPixel({
+    const next = {
       x: Math.min(width - 1, Math.max(0, point.x + offset.x)),
       y: Math.min(height - 1, Math.max(0, point.y + offset.y)),
-    });
+    };
+    if (pinnedPixel()) setPinnedPixel(next);
+    else setPixel(next);
+
+    if (viewport && zoom() > 1) {
+      const x = ((next.x + 0.5) / width) * viewport.scrollWidth;
+      const y = ((next.y + 0.5) / height) * viewport.scrollHeight;
+      if (
+        x < viewport.scrollLeft ||
+        x >= viewport.scrollLeft + viewport.clientWidth
+      ) {
+        viewport.scrollLeft = x - viewport.clientWidth / 2;
+      }
+      if (
+        y < viewport.scrollTop ||
+        y >= viewport.scrollTop + viewport.clientHeight
+      ) {
+        viewport.scrollTop = y - viewport.clientHeight / 2;
+      }
+    }
   }
 
   const decimalDegrees = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/;
@@ -337,56 +395,113 @@ export default function SkyExplorer() {
           </div>
         </div>
         <figure>
-          <div class="sky-image">
-            <img
-              src={`/observations/${observation().name}.png`}
-              width={observation().width}
-              height={observation().height}
-              alt="Grayscale SPHEREx infrared cutout of the Pinwheel Galaxy and surrounding sources"
-              tabindex="0"
-              aria-describedby="pixel-position"
-              onPointerMove={readPointer}
-              onPointerLeave={() => setPixel(undefined)}
-              onKeyDown={readKeyboard}
-            />
-            <Show when={comparing()}>
+          <div class="sky-window" ref={viewport}>
+            <div class="sky-image" style={{ width: `${zoom() * 100}%` }}>
               <img
-                class="comparison-image"
-                src={`/observations/${reference.name}.png`}
-                width={reference.width}
-                height={reference.height}
-                alt=""
-                style={{ "clip-path": `inset(0 ${100 - divider()}% 0 0)` }}
+                src={`/observations/${observation().name}.png`}
+                width={observation().width}
+                height={observation().height}
+                alt="Grayscale SPHEREx infrared cutout of the Pinwheel Galaxy and surrounding sources"
+                tabindex="0"
+                aria-describedby="pixel-position"
+                onPointerMove={readPointer}
+                onPointerLeave={() => setPixel(undefined)}
+                onKeyDown={readKeyboard}
+                onClick={(event) => {
+                  readPointer(event);
+                  togglePin();
+                }}
               />
-              <span
-                class="comparison-divider"
-                aria-hidden="true"
-                style={{ left: `${divider()}%` }}
-              />
-            </Show>
-            <Show when={markers() && !comparing()}>
-              <For each={sources()}>
-                {(source, i) => (
-                  <Show when={source.display} keyed>
-                    {(position) => (
-                      <button
-                        class="source-marker"
-                        type="button"
-                        aria-label={`Inspect source ${i() + 1}`}
-                        aria-pressed={selectedSource() === i()}
-                        style={{
-                          left: `${position.x * 100}%`,
-                          top: `${position.y * 100}%`,
-                        }}
-                        onClick={() => inspectSource(i())}
-                      >
-                        <span>{i() + 1}</span>
-                      </button>
-                    )}
-                  </Show>
+              <Show when={comparing()}>
+                <img
+                  class="comparison-image"
+                  src={`/observations/${reference.name}.png`}
+                  width={reference.width}
+                  height={reference.height}
+                  alt=""
+                  style={{ "clip-path": `inset(0 ${100 - divider()}% 0 0)` }}
+                />
+                <span
+                  class="comparison-divider"
+                  aria-hidden="true"
+                  style={{ left: `${divider()}%` }}
+                />
+              </Show>
+              <Show when={activePixel()} keyed>
+                {(point) => (
+                  <span
+                    class="pixel-reticle"
+                    classList={{
+                      "pixel-reticle-pinned": Boolean(pinnedPixel()),
+                    }}
+                    aria-hidden="true"
+                    style={{
+                      left: `${((point.x + 0.5) / observation().width) * 100}%`,
+                      top: `${((point.y + 0.5) / observation().height) * 100}%`,
+                    }}
+                  />
                 )}
-              </For>
-            </Show>
+              </Show>
+              <Show when={markers() && !comparing()}>
+                <For each={sources()}>
+                  {(source, i) => (
+                    <Show when={source.display} keyed>
+                      {(position) => (
+                        <button
+                          class="source-marker"
+                          type="button"
+                          aria-label={`Inspect source ${i() + 1}`}
+                          aria-pressed={selectedSource() === i()}
+                          style={{
+                            left: `${position.x * 100}%`,
+                            top: `${position.y * 100}%`,
+                          }}
+                          onClick={() => inspectSource(i())}
+                        >
+                          <span>{i() + 1}</span>
+                        </button>
+                      )}
+                    </Show>
+                  )}
+                </For>
+              </Show>
+            </div>
+          </div>
+          <div
+            class="image-controls"
+            role="group"
+            aria-label="Image inspection"
+          >
+            <button
+              type="button"
+              aria-label="Zoom out"
+              disabled={zoom() === 1}
+              onClick={() => changeZoom(zoom() / 2)}
+            >
+              −
+            </button>
+            <button
+              type="button"
+              aria-label="Reset zoom"
+              onClick={() => changeZoom(1)}
+            >
+              {zoom()}×
+            </button>
+            <button
+              type="button"
+              aria-label="Zoom in"
+              disabled={zoom() === 4}
+              onClick={() => changeZoom(zoom() * 2)}
+            >
+              +
+            </button>
+            <button
+              type="button"
+              aria-pressed={Boolean(pinnedPixel())}
+              onClick={togglePin}
+            >
+              {pinnedPixel() ? "Unpin" : "Pin position"}
+            </button>
           </div>
           <Show when={comparing()}>
             <div class="swipe-control">
@@ -423,6 +538,7 @@ export default function SkyExplorer() {
           </figcaption>
         </figure>
         <p id="pixel-position">
+          {pinnedPixel() && sky() ? "Pinned · " : ""}
           <Show
             when={sky()}
             fallback={
@@ -430,7 +546,7 @@ export default function SkyExplorer() {
                 ? "Loading coordinates…"
                 : grid() === null
                   ? "Coordinates unavailable."
-                  : "Point at the image or use the arrow keys for ICRS coordinates."
+                  : "Hover or use arrow keys for ICRS coordinates. Click or press Enter to pin."
             }
           >
             {(position) =>
