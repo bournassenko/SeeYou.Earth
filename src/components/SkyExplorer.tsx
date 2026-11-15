@@ -17,7 +17,7 @@ type CoordinateGrid = { coordinates: [number, number][][] };
 type ArchiveObservation = {
   id: string;
   detector: string;
-  date: string;
+  date: string | null;
   source: string;
 };
 
@@ -43,7 +43,7 @@ const coordinateFields = [
     label: "Field of view",
     example: "0.1",
     hint: "Greater than 0°, up to 180°",
-    isValid: (value: number) => value > 0 && value <= 180,
+    isValid: (value: number) => value / 2 > 0 && value <= 180,
     error: "Enter a field of view greater than 0 and at most 180.",
   },
 ] as const;
@@ -54,18 +54,27 @@ type FieldErrors = Partial<Record<CoordinateId, string>>;
 export default function SkyExplorer() {
   const [errors, setErrors] = createSignal<FieldErrors>({});
   const [selection, setSelection] = createSignal<string[]>();
+  let archiveRequest: AbortController | undefined;
+  onCleanup(() => archiveRequest?.abort());
   const [archive] = createResource(selection, async (values) => {
     if (window.location.protocol === "tauri:")
       return { offline: true } as const;
 
+    archiveRequest?.abort();
+    const request = new AbortController();
+    archiveRequest = request;
     try {
       const [ra, dec, fov] = values;
       const query = new URLSearchParams({ ra, dec, fov });
-      const response = await fetch(`/api/observations?${query}`);
+      const response = await fetch(`/api/observations?${query}`, {
+        signal: request.signal,
+      });
       if (!response.ok) return { unavailable: true } as const;
       return (await response.json()) as { observations: ArchiveObservation[] };
     } catch {
       return { unavailable: true } as const;
+    } finally {
+      if (archiveRequest === request) archiveRequest = undefined;
     }
   });
   const [ready, setReady] = createSignal(false);
@@ -84,8 +93,13 @@ export default function SkyExplorer() {
   const observation = () => observations[index()]!;
   const sources = () =>
     detections[observation().name as keyof typeof detections];
-  const matches = () =>
-    gaiaMatches[observation().name as keyof typeof gaiaMatches];
+  const matches = (index: number) => {
+    const source = sources()[index];
+    if (!source) return undefined;
+    return gaiaMatches[observation().name as keyof typeof gaiaMatches]?.find(
+      (entry) => entry.ra === source.ra && entry.dec === source.dec,
+    )?.nearby;
+  };
   const inspected = () => {
     const selected = selectedSource();
     return selected === undefined ? undefined : sources()[selected];
@@ -110,7 +124,7 @@ export default function SkyExplorer() {
           separationUnit: "arcsecond",
           detections: sources().map((entry, i) => ({
             ...entry,
-            gaiaNearby: matches()[i],
+            gaiaNearby: matches(i) ?? null,
           })),
         },
         null,
@@ -291,6 +305,7 @@ export default function SkyExplorer() {
 
     const firstInvalid = coordinateFields.find((field) => nextErrors[field.id]);
     if (firstInvalid) {
+      archiveRequest?.abort();
       setSelection(undefined);
       form.querySelector<HTMLInputElement>(`#${firstInvalid.id}`)?.focus();
       return;
@@ -354,7 +369,7 @@ export default function SkyExplorer() {
                               <a href={entry.source}>
                                 {entry.id} · {entry.detector}
                               </a>{" "}
-                              · {entry.date.slice(0, 10)}
+                              · {entry.date?.slice(0, 10) ?? "Date unavailable"}
                             </li>
                           )}
                         </For>
@@ -567,7 +582,13 @@ export default function SkyExplorer() {
               </span>
               <span>
                 Peak SNR {source.peakSnr.toFixed(1)} ·{" "}
-                {matches()[selectedSource() ?? 0].length} nearby Gaia entries
+                <Show
+                  when={matches(selectedSource() ?? 0)}
+                  keyed
+                  fallback="Gaia match unavailable"
+                >
+                  {(nearby) => `${nearby.length} nearby Gaia entries`}
+                </Show>
               </span>
             </section>
           )}
@@ -671,11 +692,15 @@ export default function SkyExplorer() {
                         <td>{source.peakSnr.toFixed(1)}</td>
                         <td>
                           <Show
-                            when={matches()[i()].length}
-                            fallback="No nearby entry"
+                            when={matches(i())?.length}
+                            fallback={
+                              matches(i())
+                                ? "No nearby entry"
+                                : "Gaia match unavailable"
+                            }
                           >
                             <ul>
-                              <For each={matches()[i()]}>
+                              <For each={matches(i())}>
                                 {(match) => (
                                   <li>
                                     {match.sourceId} ·{" "}

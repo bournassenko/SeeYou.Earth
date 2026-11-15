@@ -8,7 +8,7 @@ from astropy.wcs import WCS
 from photutils.detection import DAOStarFinder
 from scipy.ndimage import binary_dilation
 
-from render_observation import OBSERVATIONS, RAW, ROOT
+from render_observation import OBSERVATIONS, REFERENCE, ROOT, verified_source
 
 
 SOURCE_FLAG = 1 << 21
@@ -62,15 +62,14 @@ def detect(observation):
 
 
 def main():
-    reference_name = next(iter(OBSERVATIONS))
-    with fits.open(RAW / f"{reference_name}.fits") as reference:
+    with fits.open(verified_source(REFERENCE)) as reference:
         image = reference["IMAGE"]
         height, width = image.data.shape
         display_wcs = WCS(image.header, fobj=reference).celestial
 
     results = {}
     for name in OBSERVATIONS:
-        with fits.open(RAW / f"{name}.fits") as observation:
+        with fits.open(verified_source(name)) as observation:
             observation.verify("exception")
             sources = detect(observation)
         for source in sources:

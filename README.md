@@ -6,7 +6,8 @@ SeeYou.Earth is an open-source project to make astronomical observations easier 
 
 - Implemented: an Astro homepage and a SolidJS Sky Explorer form with decimal-degree coordinate validation.
 - Implemented: three aligned SPHEREx observation previews, an observation timeline, and ICRS pixel coordinates.
-- Planned: observation retrieval by coordinates.
+- Implemented: live IRSA metadata search by coordinates, with links to the original FITS files.
+- Planned: rendering observations returned by a search.
 
 ## Local development
 
@@ -14,10 +15,10 @@ Use Node.js 24 and npm.
 
 ```sh
 npm ci
-npm run dev
+npm run api
 ```
 
-Open the local URL printed by Astro.
+Run `npm run dev` in another terminal and open the local URL printed by Astro.
 
 ## Validation
 
@@ -32,7 +33,7 @@ The production build is written to `dist/`.
 
 ## M101 observation preview
 
-The viewer displays SPHEREx DR1 Level 2 cutouts from NASA/IPAC IRSA. The coordinate form validates a separate requested region. Coordinate-based image retrieval is planned. The table describes the reference observation.
+The viewer displays SPHEREx DR1 Level 2 cutouts from NASA/IPAC IRSA. The coordinate form searches IRSA and links to the original FITS files. The M101 viewer displays bundled previews. The table describes the reference observation.
 
 | Field              | Value                                   |
 | ------------------ | --------------------------------------- |
@@ -50,7 +51,10 @@ To reproduce the previews, download the three original cutouts and run the rende
 mkdir -p data/raw/spherex
 node --input-type=module -e 'import entries from "./src/observations.json" with { type: "json" }; for (const { name, source } of entries) console.log(name, source)' |
 while read -r name source; do
-  curl --fail --location --retry 2 "$source" --output "data/raw/spherex/$name.fits" || exit 1
+  destination="data/raw/spherex/$name.fits"
+  test -e "$destination" && continue
+  curl --fail --location --retry 2 "$source" --output "$destination.part" || exit 1
+  mv -n "$destination.part" "$destination"
 done
 python -m pip install astropy==8.0.3 numpy==2.5.5 pillow==13.0.0
 python scripts/render_observation.py
@@ -86,7 +90,7 @@ The detector works in native FITS pixels. It subtracts the modeled zodiacal fore
 
 ## Experimental Gaia DR3 cross-match
 
-Run `python scripts/match_gaia.py` after source detection. It queries the ESA Gaia Archive for an ICRS cone around M101 and lists every nearby entry within a 3 arcsecond screening radius plus a conservative Gaia positional-error margin. Where available, proper motions shift the Gaia coordinates to the SPHEREx exposure epoch. Without a measured proper motion the interface labels the entry as a reference-epoch position. This positional search ignores parallax and radial motion, does not resolve blends, and covers only the queried Gaia cone. A nearby entry is a possible association, and an empty result provides no evidence of a discovery.
+Run `python scripts/match_gaia.py` after source detection. The viewer links the catalog results to the exact measured centroid in each observation and reports unavailable matches for centroids absent from the catalog output. It queries the ESA Gaia Archive for an ICRS cone around M101 and lists every nearby entry within a 3 arcsecond screening radius plus a conservative Gaia positional-error margin. Where available, proper motions shift the Gaia coordinates to the SPHEREx exposure epoch. Without a measured proper motion the interface labels the entry as a reference-epoch position. This positional search ignores parallax and radial motion, does not resolve blends, and covers only the queried Gaia cone. A nearby entry is a possible association, and an empty result provides no evidence of a discovery.
 
 ## Linux desktop build
 
@@ -119,8 +123,11 @@ for exposure in 20180408381620 20180411423368 20180411467847; do
   for product in sciimg mskimg; do
     base="https://irsa.ipac.caltech.edu/ibe/data/ztf/products/sci/$year/$month_day/$fraction"
     name="ztf_${exposure}_000535_zr_c11_o_q3_${product}.fits"
+    destination="data/raw/ztf/$exposure-$product.fits"
+    test -e "$destination" && continue
     curl --fail --location --retry 2 "$base/$name?center=255.57691,12.28378&size=50arcsec&gzip=false" \
-      --output "data/raw/ztf/$exposure-$product.fits" || exit 1
+      --output "$destination.part" || exit 1
+    mv -n "$destination.part" "$destination"
   done
 done
 python scripts/compare_ztf.py

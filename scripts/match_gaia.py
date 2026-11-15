@@ -44,14 +44,15 @@ def matches_for(row, detections, catalog):
         source = SkyCoord(detection["ra"], detection["dec"], unit="deg")
         separation = source.separation(propagated).arcsec
         nearby = np.flatnonzero(separation <= RADIUS_ARCSEC + 3 * error_arcsec)
-        results.append([
+        nearby_entries = [
             {
                 "sourceId": catalog[k]["source_id"],
                 "separation": round(float(separation[k]), 4),
                 "propagated": bool(pm_known[k]),
             }
             for k in sorted(nearby, key=lambda k: separation[k])
-        ])
+        ]
+        results.append({"ra": detection["ra"], "dec": detection["dec"], "nearby": nearby_entries})
     return results
 
 

@@ -13,6 +13,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 RAW = ROOT / "data/raw/spherex"
 OUTPUT = ROOT / "public/observations"
+REFERENCE = "m101-dr1-d2"
 OBSERVATIONS = {
     "m101-dr1-d2": ("2025W21_2C_0401_3D2", "l2b-v27-2026-199", "7e6459d988dfedff4eea7119b5f659b32cf43e20287d99f00cb3281ddf2253ef"),
     "m101-0650_3D2": ("2025W49_2A_0650_3D2", "l2b-v27-2026-209", "365c8d2e82ab6bafd1c8bd505503e60b4a21c43d801e9609b51c4b3781c3b49f"),
@@ -20,13 +21,16 @@ OBSERVATIONS = {
 }
 
 
-def render(name, observation_id, version, checksum, sky):
-    source = RAW / f"{name}.fits"
-    output = OUTPUT / name
-    if hashlib.sha256(source.read_bytes()).hexdigest() != checksum:
-        raise ValueError("The downloaded FITS file does not match the recorded cutout.")
+def verified_source(name):
+    path = RAW / f"{name}.fits"
+    if hashlib.sha256(path.read_bytes()).hexdigest() != OBSERVATIONS[name][2]:
+        raise ValueError(f"The downloaded FITS file does not match the recorded cutout: {path.name}")
+    return path
 
-    with fits.open(source) as observation:
+
+def render(name, observation_id, version, sky):
+    output = OUTPUT / name
+    with fits.open(verified_source(name)) as observation:
         observation.verify("exception")
         pixels = observation["IMAGE"].data
         if pixels.ndim != 2:
@@ -81,18 +85,19 @@ def render(name, observation_id, version, checksum, sky):
 
 
 def main():
-    with fits.open(RAW / "m101-dr1-d2.fits") as reference:
+    with fits.open(verified_source(REFERENCE)) as reference:
         image = reference["IMAGE"]
         reference_wcs = WCS(image.header, fobj=reference).celestial
         rows, columns = np.indices(image.data.shape)
         sky = reference_wcs.pixel_to_world(columns, image.data.shape[0] - 1 - rows).icrs
         center = SkyCoord(210.80227, 54.34895, unit="deg", frame="icrs")
-        if sky[29, 29].separation(center).arcsec >= 6.2:
+        if sky[image.data.shape[0] // 2, image.data.shape[1] // 2].separation(center).arcsec >= 6.2:
             raise ValueError("The reference image center is outside the expected cutout.")
 
-    entries = [render(name, *details, sky) for name, details in OBSERVATIONS.items()]
+    entries = [render(name, observation_id, version, sky)
+               for name, (observation_id, version, _) in OBSERVATIONS.items()]
     coordinates = np.stack((sky.ra.deg, sky.dec.deg), axis=-1)
-    (OUTPUT / "m101-dr1-d2.json").write_text(
+    (OUTPUT / f"{REFERENCE}.json").write_text(
         json.dumps(
             {"coordinates": coordinates.round(9).tolist()},
             allow_nan=False,

@@ -45,7 +45,14 @@ function archiveRows(document) {
     ) {
       throw new Error("IRSA returned an unexpected FITS URL.");
     }
-    const date = new Date((Number(mjd) - 40587) * 86400000).toISOString();
+    const timestamp =
+      mjd != null && String(mjd).trim() !== ""
+        ? new Date((Number(mjd) - 40587) * 86400000)
+        : undefined;
+    const date =
+      timestamp && Number.isFinite(timestamp.getTime())
+        ? timestamp.toISOString()
+        : null;
     return { id, detector, date, source: url.href };
   });
 }
@@ -76,7 +83,7 @@ const server = createServer(async (request, response) => {
     ra < 360 &&
     dec >= -90 &&
     dec <= 90 &&
-    fov > 0 &&
+    fov / 2 > 0 &&
     fov <= 180
   )) {
     return send(400, { error: "Invalid sky coordinates or field of view." });
@@ -85,6 +92,9 @@ const server = createServer(async (request, response) => {
     return send(503, { error: "The search is busy. Try again shortly." });
   }
 
+  const client = new AbortController();
+  const onClose = () => client.abort();
+  response.once("close", onClose);
   activeSearches += 1;
   try {
     const archiveUrl = new URL(endpoint);
@@ -95,14 +105,16 @@ const server = createServer(async (request, response) => {
       RESPONSEFORMAT: "json",
     });
     const upstream = await fetch(archiveUrl, {
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.any([client.signal, AbortSignal.timeout(20000)]),
     });
     if (!upstream.ok) throw new Error(`IRSA returned HTTP ${upstream.status}.`);
     send(200, { observations: archiveRows(await upstream.json()) });
   } catch (error) {
+    if (client.signal.aborted || response.destroyed) return;
     console.error("IRSA search failed:", error.message);
     send(502, { error: "The IRSA archive is currently unavailable." });
   } finally {
+    response.off("close", onClose);
     activeSearches -= 1;
   }
 });

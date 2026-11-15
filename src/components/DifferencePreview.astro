@@ -3,6 +3,7 @@ import comparison from "../ztfDifference.json";
 import tracksJson from "../ztfTracks.json";
 
 const tracks: {
+  detectionsPerExposure: number[];
   candidates: {
     ra: number;
     dec: number;
@@ -72,7 +73,11 @@ function dateLabel(date: string) {
   <details>
     <summary>Motion candidates ({tracks.candidates.length})</summary>
     {tracks.candidates.length === 0 ? (
-      <p>No trajectory passed screening across the three ZTF exposures.</p>
+      <p>
+        {tracks.detectionsPerExposure.includes(0)
+          ? "At least one exposure has no detections for a three-epoch fit."
+          : "No trajectory passed screening across the three ZTF exposures."}
+      </p>
     ) : (
       <ol>
         {tracks.candidates.map((candidate) => (

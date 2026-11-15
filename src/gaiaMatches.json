@@ -1,76 +1,104 @@
 {
   "m101-dr1-d2": [
-    [
-      {
-        "sourceId": "1609275562358762368",
-        "separation": 0.2322,
-        "propagated": true
-      }
-    ],
-    [
-      {
-        "sourceId": "1609275081322912256",
-        "separation": 1.6057,
-        "propagated": true
-      },
-      {
-        "sourceId": "1609275081322912000",
-        "separation": 2.4006,
-        "propagated": false
-      }
-    ],
-    []
+    {
+      "ra": 210.81098335308835,
+      "dec": 54.37038310325348,
+      "nearby": [
+        {
+          "sourceId": "1609275562358762368",
+          "separation": 0.2322,
+          "propagated": true
+        }
+      ]
+    },
+    {
+      "ra": 210.80147898330128,
+      "dec": 54.34905113659476,
+      "nearby": [
+        {
+          "sourceId": "1609275081322912256",
+          "separation": 1.6057,
+          "propagated": true
+        },
+        {
+          "sourceId": "1609275081322912000",
+          "separation": 2.4006,
+          "propagated": false
+        }
+      ]
+    },
+    {
+      "ra": 210.82420344851576,
+      "dec": 54.34843004701498,
+      "nearby": []
+    }
   ],
   "m101-0650_3D2": [
-    [
-      {
-        "sourceId": "1609275081322912256",
-        "separation": 0.5607,
-        "propagated": true
-      },
-      {
-        "sourceId": "1609275081322912000",
-        "separation": 1.2195,
-        "propagated": false
-      },
-      {
-        "sourceId": "1609275081320939136",
-        "separation": 1.9895,
-        "propagated": true
-      }
-    ],
-    [
-      {
-        "sourceId": "1609275562358762368",
-        "separation": 0.7977,
-        "propagated": true
-      }
-    ],
-    [
-      {
-        "sourceId": "1609274565926351104",
-        "separation": 0.3577,
-        "propagated": true
-      }
-    ]
+    {
+      "ra": 210.8023504639563,
+      "dec": 54.348791147364935,
+      "nearby": [
+        {
+          "sourceId": "1609275081322912256",
+          "separation": 0.5607,
+          "propagated": true
+        },
+        {
+          "sourceId": "1609275081322912000",
+          "separation": 1.2195,
+          "propagated": false
+        },
+        {
+          "sourceId": "1609275081320939136",
+          "separation": 1.9895,
+          "propagated": true
+        }
+      ]
+    },
+    {
+      "ra": 210.81059003551843,
+      "dec": 54.37040542461044,
+      "nearby": [
+        {
+          "sourceId": "1609275562358762368",
+          "separation": 0.7977,
+          "propagated": true
+        }
+      ]
+    },
+    {
+      "ra": 210.89864990389563,
+      "dec": 54.34171759683466,
+      "nearby": [
+        {
+          "sourceId": "1609274565926351104",
+          "separation": 0.3577,
+          "propagated": true
+        }
+      ]
+    }
   ],
   "m101-0223_1D2": [
-    [
-      {
-        "sourceId": "1609275081322912256",
-        "separation": 0.4777,
-        "propagated": true
-      },
-      {
-        "sourceId": "1609275081322912000",
-        "separation": 1.4107,
-        "propagated": false
-      },
-      {
-        "sourceId": "1609275081320939136",
-        "separation": 2.5045,
-        "propagated": true
-      }
-    ]
+    {
+      "ra": 210.80199076620147,
+      "dec": 54.34895458390797,
+      "nearby": [
+        {
+          "sourceId": "1609275081322912256",
+          "separation": 0.4777,
+          "propagated": true
+        },
+        {
+          "sourceId": "1609275081322912000",
+          "separation": 1.4107,
+          "propagated": false
+        },
+        {
+          "sourceId": "1609275081320939136",
+          "separation": 2.5045,
+          "propagated": true
+        }
+      ]
+    }
   ]
 }
