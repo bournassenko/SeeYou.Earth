@@ -63,16 +63,22 @@ export default function ArchiveTimeline(props: {
   result: ArchiveSeries;
   heading: string;
   archived: boolean;
+  startComparing?: boolean;
   speed: number;
   setSpeed: (value: number) => void;
 }) {
   const [mode, setMode] = createSignal(
     props.result.series.length ? "0" : "all",
   );
-  const [index, setIndex] = createSignal(0);
+  const initiallyComparing = Boolean(
+    props.startComparing && (props.result.series[0]?.frames.length ?? 0) > 1,
+  );
+  const [index, setIndex] = createSignal(initiallyComparing ? 1 : 0);
   const [playing, setPlaying] = createSignal(false);
   const [markers, setMarkers] = createSignal(true);
-  const [referenceIndex, setReferenceIndex] = createSignal<number>();
+  const [referenceIndex, setReferenceIndex] = createSignal<number | undefined>(
+    initiallyComparing ? 0 : undefined,
+  );
   const [divider, setDivider] = createSignal(50);
   const [pin, setPin] = createSignal<{
     source: DetectedSource;
@@ -287,6 +293,16 @@ export default function ArchiveTimeline(props: {
             </figure>
             <div class="viewer-inspector">
               <div class="timeline">
+                <Show
+                  when={
+                    props.startComparing && props.result.series.length === 0
+                  }
+                >
+                  <small>
+                    No comparable wavelengths were found across the sampled
+                    exposures. Individual frames are still available.
+                  </small>
+                </Show>
                 <label for="archive-mode">Spectral selection</label>
                 <SelectField
                   id="archive-mode"

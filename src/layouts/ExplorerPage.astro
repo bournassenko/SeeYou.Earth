@@ -56,7 +56,13 @@ const current = navigation.find((entry) => entry.id === page);
         <ProjectIntro />
         <nav aria-label="Workspace">
           {navigation.map(({ id, label, href, Icon }) => (
-            <a href={href} aria-current={page === id ? "page" : undefined}>
+            <a
+              href={href}
+              data-field-route={
+                id === "explore" || id === "compare" ? href : undefined
+              }
+              aria-current={page === id ? "page" : undefined}
+            >
               <Icon aria-hidden="true" /> {label}
             </a>
           ))}
@@ -64,10 +70,16 @@ const current = navigation.find((entry) => entry.id === page);
       </header>
       <main id="dashboard-content" tabindex="-1">
         {demo && <DemoTour />}
-        {(page === "explore" || demo) && (
-          <SkyExplorer client:load demo={demo} />
+        {(page === "explore" || page === "compare" || demo) && (
+          <SkyExplorer client:load demo={demo} compare={page === "compare"} />
         )}
-        {(page === "compare" || demo) && <DifferencePreview />}
+        {page === "compare" && (
+          <details class="reference-comparison">
+            <summary>ZTF reference example</summary>
+            <DifferencePreview />
+          </details>
+        )}
+        {demo && <DifferencePreview />}
         {(page === "review" || demo) && (
           <AstrometryReview client:load demo={demo} />
         )}
@@ -807,6 +819,18 @@ const current = navigation.find((entry) => entry.id === page);
   .spectrum-values .spectrum-active {
     background: var(--accent);
     color: var(--accent-foreground);
+  }
+
+  .reference-comparison {
+    max-width: 72rem;
+    margin: var(--workspace-gap) auto 0;
+  }
+
+  .reference-comparison > summary {
+    width: fit-content;
+    margin: 0 0 var(--workspace-gap);
+    cursor: pointer;
+    font-size: 0.875rem;
   }
 
   .dashboard-demo :is(.difference-preview, .astrometry-review) {

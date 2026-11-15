@@ -116,12 +116,16 @@ type FieldErrors = Partial<Record<CoordinateId, string>>;
 type FieldSelection = [string, string, string, string?];
 type ExampleField = (typeof exampleFields)[number];
 
-export default function SkyExplorer(props: { demo?: boolean }) {
+export default function SkyExplorer(props: {
+  demo?: boolean;
+  compare?: boolean;
+}) {
   const [errors, setErrors] = createSignal<FieldErrors>({});
   const [selection, setSelection] = createSignal<FieldSelection>();
   const [linkStatus, setLinkStatus] = createSignal("");
   const [heading, setHeading] = createSignal("Sky field");
   const live = !props.demo;
+  const defaultExample = exampleFields.find(({ key }) => key === "wise")!;
   const pending = () => live && Boolean(selection());
   const result = () => {
     const response = archive();
@@ -436,6 +440,8 @@ export default function SkyExplorer(props: { demo?: boolean }) {
         input.value = params.get(id) ?? "";
       }
       coordinateForm.requestSubmit();
+    } else if (props.compare) {
+      loadExample(defaultExample);
     }
   });
 
@@ -452,13 +458,28 @@ export default function SkyExplorer(props: { demo?: boolean }) {
     return url;
   }
 
+  function updateFieldLocation(values?: FieldSelection) {
+    const url = fieldUrl(values);
+    window.history.replaceState(window.history.state, "", url);
+    for (const link of document.querySelectorAll<HTMLAnchorElement>(
+      "[data-field-route]",
+    )) {
+      const destination = new URL(link.dataset.fieldRoute!, url);
+      for (const key of ["target", "ra", "dec", "fov"]) {
+        const value = url.searchParams.get(key);
+        if (value !== null) destination.searchParams.set(key, value);
+      }
+      link.href = destination.href;
+    }
+  }
+
   function openField(values: FieldSelection, name: string) {
     setPlaying(false);
     setHeading(name);
     setLinkStatus("");
     setSelection(values);
     if (live && window.location.protocol !== "tauri:") {
-      window.history.replaceState(window.history.state, "", fieldUrl(values));
+      updateFieldLocation(values);
     }
   }
 
@@ -606,18 +627,18 @@ export default function SkyExplorer(props: { demo?: boolean }) {
                 <button
                   type="button"
                   onClick={() => {
+                    if (props.compare) {
+                      loadExample(defaultExample);
+                      return;
+                    }
                     archiveRequest?.abort();
                     setSelection(undefined);
                     setLinkStatus("");
-                    window.history.replaceState(
-                      window.history.state,
-                      "",
-                      fieldUrl(),
-                    );
+                    updateFieldLocation();
                     coordinateForm?.reset();
                   }}
                 >
-                  Back to M101
+                  {props.compare ? "Reset comparison" : "Back to M101"}
                 </button>
               </div>
               <Show when={linkStatus()}>
@@ -713,6 +734,7 @@ export default function SkyExplorer(props: { demo?: boolean }) {
                 result={series}
                 heading={heading()}
                 archived={Boolean(selection()?.[3])}
+                startComparing={props.compare}
                 speed={speed()}
                 setSpeed={setSpeed}
               />
@@ -720,7 +742,7 @@ export default function SkyExplorer(props: { demo?: boolean }) {
           </Show>
         </Show>
       </Show>
-      <div hidden={pending()}>
+      <div hidden={pending() || props.compare}>
         <section class="viewer" aria-labelledby="viewer-title">
           <div class="viewer-header">
             <h2 id="viewer-title">Pinwheel Galaxy · M101</h2>

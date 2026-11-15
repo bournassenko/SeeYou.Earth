@@ -187,7 +187,9 @@ difference photometry or demonstrate motion in any individual source.
 
 Use **Copy field link** to share the current coordinates and field size or an
 archived example. Reopening a coordinate link runs a new archive search, so
-the available exposures can change. Frame reports reference the exact FITS
+the available exposures can change. **Compare** carries the active field from
+**Explore** and opens a comparable pair when one is available. The ZTF
+reference example is a separate dataset. Frame reports reference the exact FITS
 cutout used for measurement.
 
 Use **Markers** to inspect point-like detections computed in the native FITS

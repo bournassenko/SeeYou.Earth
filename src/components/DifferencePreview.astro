@@ -79,7 +79,9 @@ function dateLabel(date: string) {
       <span>{comparison.validPixels} shared pixels · Experimental</span>
     </p>
     <details>
-      <summary>Motion candidates ({tracks.candidates.length})</summary>
+      <summary>
+        ZTF motion screening · {tracks.candidates.length} candidates
+      </summary>
       <p class="term-label">
         Track screening{" "}
         <TermHelp client:load term="motion candidates">
