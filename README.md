@@ -290,9 +290,9 @@ the common per-axis uncertainty. Observation identifiers are included in
 the report so the sequence can be checked against the archive.
 
 Open `/demo` for a hands-free tour of archive search, source inspection,
-swipe comparison, the pinned-pixel spectrum, image subtraction and the
-archived astrometry review. The tour uses the same controls and observations
-as the explorer and can be paused or replayed.
+swipe comparison, the pinned-pixel spectrum, the north ecliptic pole,
+image subtraction, and the archived astrometry review. The sidebar checklist
+shows the active and completed steps. Reload the page to replay the tour.
 
 The demo uses a large animated pointer and a spotlight to follow the active
 control. The cursor activates the displayed controls and clicks Next automatically. Both overlays leave the page interactive. Reduced-motion settings

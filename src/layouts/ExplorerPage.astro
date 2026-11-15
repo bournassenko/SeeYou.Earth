@@ -59,9 +59,9 @@ const current = navigation.find((entry) => entry.id === page);
             </a>
           ))}
         </nav>
+        {demo && <DemoTour />}
       </header>
       <main id="dashboard-content" tabindex="-1">
-        {demo && <DemoTour />}
         {(page === "explore" || demo) && (
           <SkyExplorer client:load demo={demo} />
         )}
@@ -143,6 +143,18 @@ const current = navigation.find((entry) => entry.id === page);
     border-inline-end: 1px solid var(--sidebar-border);
     background: var(--sidebar);
     color: var(--sidebar-foreground);
+  }
+
+  .dashboard-demo .sidebar {
+    display: flex;
+    flex-direction: column;
+    z-index: 5;
+  }
+
+  @media (max-width: 48rem) {
+    .dashboard-demo .sidebar {
+      position: sticky;
+    }
   }
 
   .sidebar h1 {

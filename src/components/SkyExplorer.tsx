@@ -141,7 +141,7 @@ export default function SkyExplorer(props: { demo?: boolean }) {
   const [dateError, setDateError] = createSignal("");
   const [heading, setHeading] = createSignal("Sky field");
   const live = !props.demo;
-  const pending = () => live && Boolean(selection());
+  const pending = () => Boolean(selection() && (live || selection()?.target));
   const result = () => {
     const response = archive();
     return response && "series" in response ? response : undefined;
@@ -433,6 +433,9 @@ export default function SkyExplorer(props: { demo?: boolean }) {
       setPlaying(false);
       showObservation(0);
       setPinnedPixel(undefined);
+    } else if (action === "deep") {
+      const example = exampleFields.find(({ key }) => key === "nep");
+      if (example) loadExample(example);
     }
   }
 
@@ -496,8 +499,10 @@ export default function SkyExplorer(props: { demo?: boolean }) {
       input.value = example[id];
     }
     for (const key of ["from", "to"]) {
-      const input = coordinateForm.elements.namedItem(key) as HTMLInputElement;
-      input.value = "";
+      const input = coordinateForm.elements.namedItem(
+        key,
+      ) as HTMLInputElement | null;
+      if (input) input.value = "";
     }
     setDateError("");
     setErrors({});

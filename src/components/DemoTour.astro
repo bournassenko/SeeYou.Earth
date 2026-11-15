@@ -1,35 +1,86 @@
 ---
-import ChevronRight from "@lucide/astro/icons/chevron-right";
-import Pause from "@lucide/astro/icons/pause";
-import Play from "@lucide/astro/icons/play";
-import RotateCcw from "@lucide/astro/icons/rotate-ccw";
+import Check from "@lucide/astro/icons/check";
+import Circle from "@lucide/astro/icons/circle";
+
+const chapters = [
+  {
+    title: "Search the sky",
+    focus: ".explorer-controls",
+    control: ".explorer-controls button[type=submit]",
+    action: "search",
+    duration: 5200,
+  },
+  {
+    title: "Inspect a source",
+    focus: ".viewer",
+    control: ".source-marker",
+    action: "sources",
+    duration: 3600,
+  },
+  {
+    title: "Compare two exposures",
+    focus: ".viewer",
+    control: ".viewer-tools button[aria-pressed]:last-child",
+    action: "compare",
+    duration: 3900,
+  },
+  {
+    title: "Read a pixel spectrum",
+    focus: ".viewer",
+    control: ".image-controls button[aria-pressed]",
+    action: "spectrum",
+    result: ".pixel-spectrum",
+    duration: 4600,
+  },
+  {
+    title: "Explore a deep field",
+    focus: ".archive-viewer",
+    control: ".archive-viewer button[aria-label='Next observation']",
+    action: "deep",
+    duration: 4200,
+  },
+  {
+    title: "Inspect the difference",
+    focus: ".difference-preview",
+    control: ".difference-preview summary",
+    action: "difference",
+    duration: 3600,
+  },
+  {
+    title: "Review a track",
+    focus: ".astrometry-review",
+    control: ".archived-track",
+    action: "review",
+    result: ".astrometry-results",
+    duration: 5200,
+  },
+];
 ---
 
-<div id="demo-tour" class="demo-tour" aria-label="Automatic product tour">
-  <div role="status" aria-atomic="true">
-    <strong data-demo-title>Preparing the demo</strong>
-    <span data-demo-description></span>
-  </div>
-  <div class="demo-controls">
-    <progress aria-label="Tour progress" value="0"></progress>
-    <button type="button" data-demo-pause disabled>
-      <span data-icon-pause>
-        <Pause aria-hidden="true" />
-      </span>
-      <span data-icon-resume hidden>
-        <Play aria-hidden="true" />
-      </span>
-      <span data-icon-replay hidden>
-        <RotateCcw aria-hidden="true" />
-      </span>
-      <span data-pause-label>Pause</span>
-    </button>
-    <button type="button" data-demo-next disabled>
-      Next <ChevronRight aria-hidden="true" />
-    </button>
-  </div>
-</div>
+<section
+  id="demo-tour"
+  class="demo-checklist"
+  aria-label="Demo steps"
+  data-chapters={JSON.stringify(chapters)}
+>
+  <ol>
+    {chapters.map(({ title }) => (
+      <li>
+        <Circle class="step-pending" aria-hidden="true" />
+        <Check class="step-done" aria-hidden="true" />
+        <span>{title}</span>
+        <span class="demo-status" data-step-result hidden>
+          Completed
+        </span>
+      </li>
+    ))}
+  </ol>
+  <span class="demo-status" role="status" aria-atomic="true">
+    Preparing the demo
+  </span>
+</section>
 
+<div class="demo-ripple" aria-hidden="true"></div>
 <div class="demo-spotlight" aria-hidden="true" hidden></div>
 <div class="demo-pointer" aria-hidden="true" hidden>
   <span>
@@ -49,96 +100,33 @@ import RotateCcw from "@lucide/astro/icons/rotate-ccw";
   const tour = document.querySelector<HTMLElement>("#demo-tour");
 
   if (tour) {
-    const title = tour.querySelector<HTMLElement>("[data-demo-title]")!;
-    const description = tour.querySelector<HTMLElement>(
-      "[data-demo-description]",
-    )!;
-    const progress = tour.querySelector<HTMLProgressElement>("progress")!;
-    const button = tour.querySelector<HTMLButtonElement>("[data-demo-pause]")!;
-    const nextButton =
-      tour.querySelector<HTMLButtonElement>("[data-demo-next]")!;
+    const steps = [...tour.querySelectorAll<HTMLElement>("li")];
+    const status = tour.querySelector<HTMLElement>("[role=status]")!;
     const spotlight = document.querySelector<HTMLElement>(".demo-spotlight")!;
     const pointer = document.querySelector<HTMLElement>(".demo-pointer")!;
+    const ripple = document.querySelector<HTMLElement>(".demo-ripple")!;
+    document.body.append(spotlight, pointer, ripple);
     const explorer = '[data-demo-explorer="ready"]';
     const review = '[data-demo-review="ready"]';
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
-    const chapters = [
-      {
-        title: "Search the sky",
-        description: "Find real SPHEREx observations around M101.",
-        focus: ".explorer-controls",
-        control: ".explorer-controls button[type=submit]",
-        action: "search",
-        duration: 5200,
-      },
-      {
-        title: "Inspect a source",
-        description:
-          "Connect a marker to its measurements and nearby Gaia entries.",
-        focus: ".viewer",
-        control: ".source-marker",
-        action: "sources",
-        duration: 3600,
-      },
-      {
-        title: "Compare two exposures",
-        description:
-          "Move the divider across the aligned images. Dates and wavelengths stay visible.",
-        focus: ".viewer",
-        control: ".viewer-tools button[aria-pressed]:last-child",
-        action: "compare",
-        duration: 3900,
-      },
-      {
-        title: "Read a pixel spectrum",
-        description:
-          "Pin one position to see brightness and uncertainty across wavelengths.",
-        focus: ".viewer",
-        control: ".image-controls button[aria-pressed]",
-        action: "spectrum",
-        result: ".pixel-spectrum",
-        duration: 4600,
-      },
-      {
-        title: "Inspect the difference",
-        description:
-          "See both ZTF exposures and the subtraction on the same grid.",
-        focus: ".difference-preview",
-        control: ".difference-preview summary",
-        action: "difference",
-        duration: 3600,
-      },
-      {
-        title: "Review a track",
-        description:
-          "Test an archived trajectory against a withheld observation, then inspect the evidence.",
-        focus: ".astrometry-review",
-        control: ".archived-track",
-        action: "review",
-        result: ".astrometry-results",
-        duration: 5200,
-      },
-    ];
-
-    progress.max = chapters.length;
+    const chapters = JSON.parse(tour.dataset.chapters!) as {
+      title: string;
+      focus: string;
+      control: string;
+      action: string;
+      duration: number;
+      result?: string;
+    }[];
     let index = 0;
-    let paused = false;
     let finished = false;
     let timeout: number | undefined;
-    let nextAction: (() => void) | undefined;
-    let remaining = 0;
-    let deadline = 0;
     let focus: Element | null = null;
     let pendingFrame = 0;
 
     function schedule(delay: number, action: () => void) {
-      remaining = delay;
-      nextAction = action;
-      deadline = performance.now() + delay;
       timeout = window.setTimeout(() => {
         timeout = undefined;
-        nextAction = undefined;
         action();
       }, delay);
     }
@@ -188,18 +176,17 @@ import RotateCcw from "@lucide/astro/icons/rotate-ccw";
         pointer.style.transform = `translate(${x}px, ${y}px)`;
     }
 
-    function labelPlayback(label: "Pause" | "Resume" | "Replay") {
-      button.querySelector("[data-pause-label]")!.textContent = label;
-      for (const name of ["pause", "resume", "replay"]) {
-        button
-          .querySelector(`[data-icon-${name}]`)
-          ?.toggleAttribute("hidden", name !== label.toLowerCase());
-      }
-    }
-
     function clickControl(control: HTMLElement | null) {
       if (!control) return;
       if (!pointer.hidden && !reducedMotion.matches) {
+        ripple.style.transform = pointer.style.transform;
+        ripple.animate(
+          [
+            { opacity: 0.75, scale: 0.35 },
+            { opacity: 0, scale: 1.55 },
+          ],
+          { duration: 430, easing: "ease-out" },
+        );
         pointer
           .querySelector("span")
           ?.animate(
@@ -230,20 +217,28 @@ import RotateCcw from "@lucide/astro/icons/rotate-ccw";
 
     function showChapter() {
       const chapter = chapters[index];
+      for (const [stepIndex, step] of steps.entries()) {
+        const completed =
+          stepIndex < index && !step.hasAttribute("data-skipped");
+        step.toggleAttribute("data-complete", completed);
+        step
+          .querySelector("[data-step-result]")
+          ?.toggleAttribute(
+            "hidden",
+            !completed && !step.hasAttribute("data-skipped"),
+          );
+        if (stepIndex === index) step.setAttribute("aria-current", "step");
+        else step.removeAttribute("aria-current");
+      }
+
       if (!chapter) {
         finished = true;
-        title.textContent = "Tour complete";
-        description.textContent = "The explorer is ready to use.";
-        labelPlayback("Replay");
-        nextButton.disabled = true;
+        status.textContent = "Tour complete";
         refreshOverlays();
         return;
       }
 
-      title.textContent = chapter.title;
-      description.textContent = chapter.description;
-      progress.value = index + 1;
-      nextButton.disabled = false;
+      status.textContent = chapter.title;
       dispatch(explorer, chapter.action);
       if (chapter.action === "difference") {
         const details = document.querySelector<HTMLDetailsElement>(
@@ -251,91 +246,83 @@ import RotateCcw from "@lucide/astro/icons/rotate-ccw";
         );
         if (details) details.open = false;
       }
-      focus = document.querySelector(chapter.focus);
-      const control = document.querySelector<HTMLElement>(chapter.control);
-      scrollTo(control ?? focus, "center");
-      trackViewport();
 
-      const advance = () => {
-        moveTo("[data-demo-next]");
-        schedule(reducedMotion.matches ? 60 : 540, () =>
-          clickControl(nextButton),
-        );
-      };
+      function advance() {
+        index += 1;
+        showChapter();
+      }
 
-      schedule(reducedMotion.matches ? 60 : 460, () => {
-        moveTo(chapter.control);
-        schedule(reducedMotion.matches ? 60 : 540, () => {
-          clickControl(control);
-          if (chapter.action === "compare") setSwipe(35);
-          if (chapter.action === "sources")
-            focus = document.querySelector(".sky-window");
-          if (chapter.action === "compare")
-            focus = document.querySelector(".viewer figure");
-          trackViewport();
+      const waitUntil = performance.now() + 7000;
+      function demonstrate() {
+        const control = document.querySelector<HTMLElement>(chapter.control);
+        if (
+          chapter.action === "deep" &&
+          !control &&
+          performance.now() < waitUntil
+        ) {
+          schedule(120, demonstrate);
+          return;
+        }
+        if (!control) {
+          const step = steps[index];
+          step?.setAttribute("data-skipped", "");
+          const result = step?.querySelector("[data-step-result]");
+          if (result) result.textContent = "Unavailable";
+          advance();
+          return;
+        }
+        focus = document.querySelector(chapter.focus);
+        scrollTo(control ?? focus, "center");
+        trackViewport();
 
-          if (chapter.action === "compare") {
-            schedule(1050, () => {
-              scrollTo(document.querySelector("#swipe-divider"), "nearest");
-              schedule(350, () => {
-                moveTo("#swipe-divider", 0.35);
-                schedule(650, () => {
-                  moveTo("#swipe-divider", 0.7);
+        schedule(reducedMotion.matches ? 60 : 460, () => {
+          moveTo(chapter.control);
+          schedule(reducedMotion.matches ? 60 : 540, () => {
+            clickControl(control);
+            if (chapter.action === "sources")
+              focus = document.querySelector(".sky-window");
+            if (chapter.action === "compare")
+              focus = document.querySelector(".viewer figure");
+            trackViewport();
+
+            if (chapter.action === "compare") {
+              const divider = "#swipe-divider";
+              setSwipe(50);
+              scrollTo(document.querySelector(divider), "nearest");
+              schedule(220, () => {
+                moveTo(divider);
+                schedule(520, () => {
+                  moveTo(divider, 0.7);
                   setSwipe(70);
-                  schedule(chapter.duration - 2050, advance);
+                  schedule(chapter.duration - 740, advance);
                 });
               });
-            });
-          } else if (chapter.result) {
-            schedule(900, () => {
-              const result = document.querySelector(chapter.result);
-              if (result) {
-                focus = result;
-                scrollTo(result, "center");
-                trackViewport();
-              }
-              schedule(chapter.duration - 900, advance);
-            });
-          } else {
-            schedule(chapter.duration, advance);
-          }
+            } else if (chapter.result) {
+              const selector = chapter.result;
+              schedule(900, () => {
+                const result = document.querySelector(selector);
+                if (result) {
+                  focus = result;
+                  scrollTo(result, "center");
+                  trackViewport();
+                }
+                schedule(chapter.duration - 900, advance);
+              });
+            } else {
+              schedule(chapter.duration, advance);
+            }
+          });
         });
-      });
-    }
-
-    nextButton.addEventListener("click", () => {
-      if (paused || finished) return;
-      window.clearTimeout(timeout);
-      index += 1;
-      showChapter();
-    });
-
-    button.addEventListener("click", () => {
-      if (finished) {
-        finished = false;
-        index = 0;
-        labelPlayback("Pause");
-        showChapter();
-      } else if (paused) {
-        paused = false;
-        labelPlayback("Pause");
-        nextButton.disabled = false;
-        if (nextAction) schedule(remaining, nextAction);
-      } else {
-        paused = true;
-        labelPlayback("Resume");
-        nextButton.disabled = true;
-        remaining = Math.max(0, deadline - performance.now());
-        window.clearTimeout(timeout);
       }
-    });
+
+      demonstrate();
+    }
 
     const ready = new MutationObserver(start);
     function start() {
       if (!document.querySelector(explorer) || !document.querySelector(review))
         return;
       ready.disconnect();
-      button.disabled = false;
       showChapter();
     }
     ready.observe(document.body, {
@@ -363,51 +350,83 @@ import RotateCcw from "@lucide/astro/icons/rotate-ccw";
 </script>
 
 <style>
-  .demo-tour {
-    position: sticky;
-    z-index: 5;
-    top: 0.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    margin-bottom: 1rem;
-    padding: 1rem 1.25rem;
-    background: var(--popover);
-    color: var(--popover-foreground);
-    border-radius: var(--luma-radius-surface);
-    box-shadow: var(--luma-elevation);
+  .demo-checklist {
+    margin-top: auto;
+    padding-top: 1.5rem;
   }
 
-  .demo-tour [role="status"] {
+  .demo-checklist ol {
     display: grid;
-    gap: 0.25rem;
+    gap: 0.15rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
   }
 
-  .demo-tour [data-demo-description] {
-    color: var(--muted-foreground);
-    font-size: 0.875rem;
-  }
-
-  .demo-controls {
+  .demo-checklist li {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.5rem;
+    min-height: 1.8rem;
+    padding-inline: 0.55rem;
+    border-radius: var(--luma-radius-inset);
+    color: var(--muted-foreground);
+    font-size: 0.8125rem;
   }
 
-  .demo-controls progress {
-    width: 5rem;
-    height: 0.55rem;
-    accent-color: var(--primary);
+  .demo-checklist li[aria-current] {
+    background: var(--sidebar-accent);
+    color: var(--sidebar-accent-foreground);
+    font-weight: 650;
   }
 
-  .demo-controls button {
-    min-width: 4.5rem;
-    min-height: 2.25rem;
-    padding: 0.3rem 0.7rem;
-    background: var(--secondary);
-    color: var(--secondary-foreground);
+  .demo-checklist svg {
+    flex: 0 0 0.9rem;
+    width: 0.9rem;
+    height: 0.9rem;
+  }
+
+  .demo-checklist li:not([data-complete]) .step-done,
+  .demo-checklist li[data-complete] .step-pending {
+    display: none;
+  }
+
+  .demo-status {
+    position: absolute;
+    overflow: hidden;
+    width: 1px;
+    height: 1px;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .demo-ripple {
+    position: fixed;
+    z-index: 6;
+    top: -0.6rem;
+    left: -0.6rem;
+    width: 1.2rem;
+    height: 1.2rem;
+    border: 2px solid white;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px black;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  @media (max-width: 48rem) {
+    .demo-checklist {
+      padding-top: 0.5rem;
+    }
+
+    .demo-checklist ol {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .demo-checklist li {
+      padding-inline: 0.2rem;
+      font-size: 0.75rem;
+    }
   }
 
   .demo-spotlight {
@@ -439,10 +458,6 @@ import RotateCcw from "@lucide/astro/icons/rotate-ccw";
     transform-origin: top left;
   }
 
-  .demo-controls span[hidden] {
-    display: none;
-  }
-
   @media (prefers-reduced-motion: reduce) {
     .demo-pointer {
       transition: none;
@@ -460,6 +475,6 @@ import RotateCcw from "@lucide/astro/icons/rotate-ccw";
         .astrometry-results
       )
     ) {
-    scroll-margin-top: 7rem;
+    scroll-margin-top: 1rem;
   }
 </style>
